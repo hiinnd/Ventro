@@ -1,0 +1,46 @@
+{
+  "name": "ventro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VENTRO — Every Event. Beyond the Moment.",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=24.0.0 <25",
+    "pnpm": ">=10.34.9 <11"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @ventro/api --filter @ventro/web dev",
+    "predev": "pnpm db:generate && pnpm --filter @ventro/types build",
+    "build": "pnpm db:generate && pnpm -r --if-present build",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm db:generate && pnpm --filter @ventro/types build && pnpm -r --if-present typecheck",
+    "test": "pnpm db:generate && pnpm --filter @ventro/types build && pnpm --filter @ventro/api test && pnpm --filter @ventro/web test",
+    "test:integration": "pnpm db:generate && pnpm --filter @ventro/types build && pnpm --filter @ventro/api build && pnpm --filter @ventro/api test:integration",
+    "test:smoke": "node scripts/smoke.mjs",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "env:init": "node scripts/init-env.mjs",
+    "infra:up": "docker compose --env-file .env -f infrastructure/compose.yaml up -d --wait",
+    "infra:down": "docker compose --env-file .env -f infrastructure/compose.yaml down",
+    "infra:logs": "docker compose --env-file .env -f infrastructure/compose.yaml logs --tail 100",
+    "db:generate": "pnpm --filter @ventro/api db:generate",
+    "db:validate": "pnpm --filter @ventro/api db:validate",
+    "db:migrate": "pnpm --filter @ventro/api db:migrate",
+    "db:deploy": "pnpm --filter @ventro/api db:deploy"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^24.0.0",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.0.0",
+    "prettier": "^3.8.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.2"
+  },
+  "prettier": "@ventro/config/prettier",
+  "dependencies": {
+    "@ventro/config": "workspace:*"
+  }
+}

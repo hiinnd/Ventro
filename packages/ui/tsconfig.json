@@ -1,0 +1,7 @@
+{
+  "extends": "@ventro/config/typescript/next",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

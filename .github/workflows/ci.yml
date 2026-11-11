@@ -1,0 +1,67 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    name: ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [lint, typecheck, test, build]
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm env:init
+      - run: pnpm format:check
+      - run: pnpm ${{ matrix.check }}
+  integration:
+    name: Real services and HTTP smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm env:init
+      - run: docker compose --env-file .env -f infrastructure/compose.yaml config --quiet
+      - run: pnpm infra:up
+      - run: pnpm db:validate
+      - run: pnpm build
+      - run: pnpm test:integration
+      - name: Start applications and check full stack
+        run: |
+          mkdir -p .local
+          pnpm --filter @ventro/api start > .local/api.log 2>&1 &
+          pnpm --filter @ventro/web start > .local/web.log 2>&1 &
+          node scripts/wait-for.mjs http://127.0.0.1:4000/api/health
+          node scripts/wait-for.mjs http://127.0.0.1:3000
+          pnpm test:smoke
+      - name: Collect failure logs
+        if: failure()
+        run: |
+          pnpm infra:logs
+          cat .local/api.log .local/web.log 2>/dev/null || true
+      - name: Stop infrastructure
+        if: always()
+        run: pnpm infra:down

@@ -1,0 +1,9 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+datasource db {
+  provider = "postgresql"
+}
+// No domain models in Phase 1. Introduce tenant ownership with the first domain migration.

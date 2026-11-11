@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+node_modules
+.tools
+.local
+.next
+dist
+coverage
+apps/api/src/generated
+apps/web/next-env.d.ts

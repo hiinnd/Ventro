@@ -1,0 +1,32 @@
+:root {
+  --navy: #101b35;
+  --lavender: #9b8cff;
+  --mint: #5ce1c6;
+  --white: #f6f7fb;
+  --slate: #252b42;
+  --background: var(--white);
+  --foreground: var(--navy);
+  --card: #ffffff;
+  --muted: #eceef6;
+  --muted-foreground: #59647d;
+  --border: #dce0ee;
+  --primary: var(--navy);
+  --primary-foreground: var(--white);
+  --accent: var(--lavender);
+  --ring: #7665db;
+  --success: #13735f;
+  --danger: #b42336;
+}
+:root.dark {
+  color-scheme: dark;
+  --background: #0b1224;
+  --foreground: var(--white);
+  --card: var(--navy);
+  --muted: var(--slate);
+  --muted-foreground: #adb7cd;
+  --border: #303b57;
+  --primary: var(--lavender);
+  --primary-foreground: var(--navy);
+  --success: var(--mint);
+  --danger: #ffa4ac;
+}

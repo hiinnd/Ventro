@@ -1,0 +1,51 @@
+{
+  "name": "@ventro/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "pnpm build && tsc --noEmit -p tsconfig.test.json",
+    "test": "pnpm build && vitest run --config vitest.config.mts",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.2.9",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "11.2.9",
+    "@nestjs/platform-express": "11.2.9",
+    "@nestjs/swagger": "11.4.8",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "@ventro/types": "workspace:*",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
+    "dotenv": "^17.2.3",
+    "helmet": "^8.1.0",
+    "ioredis": "^6.0.0",
+    "nestjs-pino": "4.6.1",
+    "pg": "^8.16.3",
+    "pino": "^10.3.0",
+    "pino-http": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.3.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "11.2.9",
+    "@types/express": "^5.0.0",
+    "@types/pg": "^8.15.0",
+    "@types/supertest": "^6.0.3",
+    "@ventro/config": "workspace:*",
+    "prisma": "7.10.1",
+    "supertest": "^7.2.2",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}
