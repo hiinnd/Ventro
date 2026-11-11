@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">VENTRO</title>
+  <rect width="64" height="64" rx="16" fill="#101B35" />
+  <g transform="translate(8 8)">
+    <path d="M3 11H14L25 35L20 46Z" fill="#F6F7FB" />
+    <path d="M31 11H42L27 43C26.1 45 24.8 46 22.5 46H20Z" fill="#9B8CFF" />
+    <path d="M35 0H46L42 8H31Z" fill="#5CE1C6" />
+  </g>
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 64" role="img" aria-labelledby="title">
+  <title id="title">VENTRO — monochrome logo on light</title>
+  <g transform="translate(4 8)">
+    <path d="M3 11H14L25 35L20 46Z" fill="#101B35" />
+    <path d="M31 11H42L27 43C26.1 45 24.8 46 22.5 46H20Z" fill="#101B35" />
+    <path d="M35 0H46L42 8H31Z" fill="#101B35" />
+  </g>
+  <g transform="translate(80 14)" fill="#101B35" fill-rule="evenodd">
+    <path transform="translate(0 0)" d="M0 0H7L15 25L23 0H30L18 36H12Z" />
+    <path transform="translate(37 0)" d="M0 0H25V6H7V14H22V20H7V30H25V36H0Z" />
+    <path transform="translate(69 0)" d="M0 36V0H7L23 24V0H30V36H23L7 12V36Z" />
+    <path transform="translate(106 0)" d="M0 0H30V7H19V36H11V7H0Z" />
+    <path
+      transform="translate(143 0)"
+      d="M0 36V0H16C25 0 30 4.5 30 12C30 17 27 21 22 23L32 36H23L14 24H7V36ZM7 6V18H16C20.5 18 23 16.1 23 12C23 8.1 20.5 6 16 6Z"
+    />
+    <path
+      transform="translate(182 0)"
+      d="M16 0C27 0 32 7.4 32 18S27 36 16 36S0 28.6 0 18S5 0 16 0ZM16 7C10 7 7 11 7 18S10 29 16 29S25 25 25 18S22 7 16 7Z"
+    />
+  </g>
+</svg>

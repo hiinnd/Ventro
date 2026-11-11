@@ -7,3 +7,7 @@ dist
 coverage
 apps/api/src/generated
 apps/web/next-env.d.ts
+
+.vscode/
+playwright-report/
+test-results/
