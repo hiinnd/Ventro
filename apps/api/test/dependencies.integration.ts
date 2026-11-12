@@ -27,6 +27,8 @@ describe('real dependency integration (requires PostgreSQL and Redis)', () => {
     const redis = new RedisService(settings as never, logger);
     try {
       await database.ping();
+      const [clock] = await database.$queryRaw<Array<{ now: Date }>>`SELECT NOW() AS now`;
+      expect(Math.abs(clock!.now.getTime() - Date.now())).toBeLessThan(5000);
       // Prisma query time also gives Redis time to establish its initial connection.
       await expect(redis.ping()).resolves.toBeUndefined();
       await expect(database.$queryRaw`SELECT current_database() AS database`).resolves.toEqual([

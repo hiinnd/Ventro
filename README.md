@@ -2,7 +2,7 @@
 
 **Every Event. Beyond the Moment.**
 
-Production-oriented event management SaaS for Jordan and MENA. Phase 1 provides the technical foundation only.
+Production-oriented event management SaaS for Jordan and MENA. The repository includes the technical foundation, brand/design system, and bilingual public marketing website. Authentication and event business features are not implemented.
 
 ## Requirements
 
@@ -32,7 +32,32 @@ pnpm dev
 - OpenAPI: http://127.0.0.1:4000/api/openapi.json
 - Frontend health proxy: http://127.0.0.1:3000/api/health
 
-The foundation page supports Arabic/English, RTL/LTR, system/light/dark themes, and real dependency status. No authentication or event management is enabled yet.
+The public website starts at `/en` or `/ar`; `/` redirects to `/en`. The original foundation and real dependency-status page is preserved at `/dev/foundation` during development. Both development pages return 404 in production. No authentication or event management is enabled yet.
+
+## Public website
+
+Home, Features, Solutions, Pricing, About, Contact, FAQ, Privacy Policy, and Terms of Service are available in both languages, with URL-based server-rendered language/direction, light/dark themes, responsive photography, and reduced-motion support. Product screens, Event Passport, and the filtered event gallery are explicitly illustrative concepts.
+
+No prices are approved: Gather/Grow/Scale are proposed packages and show “Announced at launch.” The contact page prepares a brief in browser memory, validates it locally, and supports real clipboard copying. It does not submit contact data or enroll users. Setting `CONTACT_EMAIL` enables a user-controlled email draft; delivery is handled by the user's email app.
+
+Before public launch, configure these root `.env` values and restart/rebuild:
+
+| Variable                  | Default / purpose                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SITE_URL`                | `http://127.0.0.1:3000`; approved origin for canonical, alternate, sitemap, and Open Graph URLs. No path or credentials.                         |
+| `SEARCH_INDEXING_ENABLED` | `false`; indexing requires an explicit `true` **and** an HTTPS `SITE_URL`. Local/staging previews intentionally use noindex and robots disallow. |
+| `CONTACT_EMAIL`           | Empty; do not invent a contact address. Enables email-draft links when set.                                                                      |
+| `LEGAL_OPERATOR_NAME`     | Empty; display confirmed operator details when supplied. Legal documents remain clearly marked preview drafts pending legal approval.            |
+
+Only the VENTRO brand name has been provided; an official domain, contact email, registered operator, and approved prices remain launch dependencies. No live waitlist, analytics, or contact backend is installed. Photography sources and licensing are documented in [ASSET_LICENSES](docs/ASSET_LICENSES.md). `node scripts/fetch-marketing-assets.mjs` regenerates the committed local WebP images and provenance manifest; normal builds need no photo download.
+
+`pnpm test:ui` covers all 18 localized pages, links, metadata, browser interactions, language/theme persistence, desktop/mobile axe scans, and the design-system regression suite. With a **production frontend** running, use `pnpm --filter @ventro/web audit:lighthouse` for English mobile/desktop and Arabic mobile reports in ignored `.local/lighthouse`. The script uses installed Chrome (or `CHROME_PATH`); configure `LIGHTHOUSE_URL` for another local origin. Review local results in PROJECT_STATE; default noindex intentionally affects the SEO score.
+
+## Brand and design system
+
+During development, open http://127.0.0.1:3000/dev/design-system for the original SVG identity, local fonts, tokens, and interactive component library. The route returns 404 in production. SVG downloads are available under `apps/web/public/brand`.
+
+`pnpm brand:generate` regenerates the eight SVG assets from shared geometry. `pnpm brand:check` checks consistency. `pnpm test:ui` runs Playwright keyboard, RTL/theme, responsive, and axe accessibility checks; it starts the development frontend automatically. See [DESIGN_SYSTEM](docs/DESIGN_SYSTEM.md) for component APIs and browser setup.
 
 Readiness returns **200** only when Prisma can query PostgreSQL and authenticated Redis responds to PING. Dependency failures return **503** with individual statuses. The frontend proxy returns **502** when the API is unreachable or its response is invalid. Liveness stays available during dependency outages.
 

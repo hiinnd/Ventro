@@ -45,8 +45,20 @@ export const environmentSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    AUTH_SECRET: z.string().regex(/^[a-fA-F0-9]{64}$/, 'Generate a 32-byte hex secret with pnpm env:init'),
+    AUTH_APP_URL: origin.default('http://127.0.0.1:3000'),
+    AUTH_RATE_NAMESPACE: z.string().regex(/^[a-z0-9-]{1,60}$/).default('ventro-auth-v1'),
+    SMTP_HOST: z.string().min(1).default('127.0.0.1'),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+    SMTP_SECURE: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    SMTP_REQUIRE_TLS: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    SMTP_FROM: z.email().default('no-reply@ventro.test'),
   })
   .superRefine((env, ctx) => {
+    if (!env.WEB_ORIGINS.includes(env.AUTH_APP_URL)) ctx.addIssue({ code: 'custom', path: ['AUTH_APP_URL'], message: 'Must be an allowed WEB_ORIGINS origin' });
+    if (env.NODE_ENV === 'production' && (!env.AUTH_APP_URL.startsWith('https://') || (!env.SMTP_SECURE && !env.SMTP_REQUIRE_TLS) || env.SMTP_FROM.endsWith('.test'))) ctx.addIssue({ code: 'custom', path: ['AUTH_APP_URL'], message: 'Production requires HTTPS, TLS SMTP, and an approved sender address' });
     if (
       env.NODE_ENV === 'production' &&
       env.WEB_ORIGINS.some((value) => !value.startsWith('https://'))

@@ -7,6 +7,8 @@ const { validateEnvironment } = requireCompiled(
 ) as typeof import('../dist/config/environment.js');
 
 const valid = {
+  AUTH_SECRET: '01'.repeat(32),
+  AUTH_APP_URL: 'http://localhost:3000',
   DATABASE_URL: 'postgresql://user:secret@localhost:5432/ventro',
   REDIS_URL: 'redis://localhost:6379',
   WEB_ORIGINS: 'http://localhost:3000',

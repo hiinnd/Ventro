@@ -6,4 +6,148 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-// No domain models in Phase 1. Introduce tenant ownership with the first domain migration.
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum EmailKind {
+  VERIFY_EMAIL
+  PASSWORD_RESET
+  PASSWORD_CHANGED
+}
+
+enum EmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id                String     @id @default(uuid()) @db.Uuid
+  email             String     @unique @db.VarChar(254)
+  name              String     @db.VarChar(100)
+  passwordHash      String
+  locale            String     @default("en") @db.VarChar(2)
+  status            UserStatus @default(ACTIVE)
+  emailVerifiedAt   DateTime?   @db.Timestamptz(3)
+  credentialVersion Int        @default(1)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+
+  sessions           Session[]
+  verificationTokens EmailVerificationToken[]
+  resetTokens        PasswordResetToken[]
+  memberships        OrganizationMember[]
+  auditLogs          AuditLog[]
+  emailDeliveries    EmailOutbox[]
+}
+
+model Session {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  tokenHash         String   @unique @db.Char(64)
+  credentialVersion Int
+  expiresAt         DateTime @db.Timestamptz(3)
+  absoluteExpiresAt DateTime @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  renewedAt         DateTime @default(now()) @db.Timestamptz(3)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Organization {
+  id         String               @id @default(uuid()) @db.Uuid
+  name       String               @db.VarChar(120)
+  slug       String               @unique @db.VarChar(80)
+  archivedAt DateTime?            @db.Timestamptz(3)
+  createdAt  DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime             @updatedAt @db.Timestamptz(3)
+  members    OrganizationMember[]
+  auditLogs  AuditLog[]
+}
+
+model OrganizationMember {
+  organizationId String           @db.Uuid
+  userId         String           @db.Uuid
+  role           OrganizationRole @default(MEMBER)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId])
+}
+
+model AuditLog {
+  id             String        @id @default(uuid()) @db.Uuid
+  actorId        String?       @db.Uuid
+  organizationId String?       @db.Uuid
+  action         String        @db.VarChar(64)
+  requestId      String?       @db.VarChar(64)
+  networkHash    String?       @db.Char(64)
+  metadata       Json?
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  actor          User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
+}
+
+// Transactional outbox keeps email intent durable without storing plaintext tokens in a queue.
+model EmailOutbox {
+  id               String      @id @default(uuid()) @db.Uuid
+  userId           String      @db.Uuid
+  kind             EmailKind
+  encryptedPayload String
+  tokenHash        String?     @db.Char(64)
+  status           EmailStatus @default(PENDING)
+  attempts         Int         @default(0)
+  nextAttemptAt    DateTime    @default(now()) @db.Timestamptz(3)
+  leaseUntil       DateTime?   @db.Timestamptz(3)
+  expiresAt        DateTime    @db.Timestamptz(3)
+  createdAt        DateTime    @default(now()) @db.Timestamptz(3)
+  sentAt           DateTime?   @db.Timestamptz(3)
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([userId])
+}

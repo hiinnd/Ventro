@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useTheme } from 'next-themes';
-import { Button, cn } from '@ventro/ui';
-import { healthResponseSchema, type HealthResponse, type Locale } from '@ventro/types';
+import { Button, BrandLogo, cn } from '@ventro/ui';
+import { healthResponseSchema, type HealthResponse } from '@ventro/types';
 import { messages } from '../lib/messages';
+import { useLocale } from './locale-provider';
 
 type HealthState =
   | { kind: 'loading' }
@@ -13,30 +14,12 @@ type HealthState =
   | { kind: 'error' };
 
 export function Foundation() {
-  const [locale, setLocale] = useState<Locale>('en');
+  const { locale, setLocale } = useLocale();
   const [state, setState] = useState<HealthState>({ kind: 'loading' });
   const controller = useRef<AbortController | null>(null);
   const { resolvedTheme, setTheme } = useTheme();
   const reduceMotion = useReducedMotion();
   const t = messages[locale];
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('ventro-locale');
-      if (stored === 'ar' || stored === 'en') setLocale(stored);
-    } catch {
-      /* Preference storage is optional. */
-    }
-  }, []);
-  useEffect(() => {
-    document.documentElement.lang = locale;
-    document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
-    try {
-      localStorage.setItem('ventro-locale', locale);
-    } catch {
-      /* Private browsing may disable storage. */
-    }
-  }, [locale]);
 
   const check = useCallback(async () => {
     controller.current?.abort();
@@ -115,21 +98,7 @@ export function Foundation() {
           aria-label="VENTRO home"
           className="flex items-center gap-3 text-xl font-extrabold tracking-[0.16em]"
         >
-          <span
-            aria-hidden
-            className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"
-          >
-            <svg viewBox="0 0 24 24" className="size-6" fill="none">
-              <path
-                d="m5 6 7 13 7-13M10 6l2 4 2-4"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          VENTRO
+          <BrandLogo decorative className="h-9 w-auto" />
         </a>
         <nav
           aria-label={locale === 'ar' ? 'تفضيلات العرض' : 'Display preferences'}
@@ -180,7 +149,7 @@ export function Foundation() {
             </p>
             <h1 className="text-5xl font-semibold leading-[1.12] tracking-tight sm:text-6xl">
               <span className="block">{t.heading}</span>
-              <span className="mt-2 block text-accent">{t.headingAccent}</span>
+              <span className="mt-2 block text-accent-foreground">{t.headingAccent}</span>
             </h1>
             <p className="mt-7 max-w-md text-base leading-8 text-muted-foreground">{t.intro}</p>
             <div className="mt-10 flex items-center gap-3 text-xs text-muted-foreground">

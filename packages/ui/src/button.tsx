@@ -12,7 +12,7 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:brightness-95',
         destructive: 'bg-destructive text-destructive-foreground hover:brightness-95',
         link: 'text-accent-foreground underline-offset-4 hover:underline',
-        outline: 'border border-border bg-card text-foreground hover:bg-muted',
+        outline: 'border border-input-border bg-card text-foreground hover:bg-muted',
         ghost: 'text-muted-foreground hover:bg-muted hover:text-foreground',
       },
       size: { default: 'h-11 px-5', sm: 'h-9 px-3', lg: 'h-12 px-6', icon: 'size-11 p-0' },

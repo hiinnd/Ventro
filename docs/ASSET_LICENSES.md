@@ -1,0 +1,14 @@
+# Asset provenance
+
+Reviewed November 12, 2026. Photography is illustrative stock imagery. It does not depict VENTRO customers, partners, or VENTRO-operated events, and it is not an endorsement.
+
+| Local asset                            | Photographer and original page                                                                                               | License                                          | Treatment                                                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/public/media/gathering.webp` | [Pablo Heimplatz — people partying with confetti](https://unsplash.com/photos/people-partying-with-confetti-ZODcBkEohk8)     | [Unsplash License](https://unsplash.com/license) | Top 78% crop emphasizes confetti and lighting, removes recognizable foreground faces; resized to 1920px and encoded as WebP. |
+| `apps/web/public/media/venue.webp`     | [CHUTTERSNAP — conference room with round tables](https://unsplash.com/photos/conference-room-with-round-tables-Q_KdjKxntH8) | [Unsplash License](https://unsplash.com/license) | Resized to 1920px and encoded as WebP.                                                                                       |
+
+The Unsplash license permits commercial use and modification without mandatory attribution. Selling unmodified images and building a competing image service are excluded. The photo license alone does not grant rights to identifiable people, brands, or works visible in an image. These atmosphere images avoid customer or endorsement claims. Visible footer credits are retained voluntarily.
+
+`scripts/fetch-marketing-assets.mjs` is the reproducible acquisition/processing script. `public/media/manifest.json` records the exact source URLs, photo pages, authors, licensing URL, dimensions, blur placeholders, and SHA-256 hashes. The checked-in WebP files run locally without runtime third-party image requests. `next/image` serves responsive optimized variants. No AI-generated event photography is used.
+
+Plus Jakarta Sans, Inter, and IBM Plex Sans Arabic are bundled locally through their Fontsource packages under the SIL Open Font License 1.1. Their unmodified copyright/license notices are retained in [Plus Jakarta Sans](licenses/plus-jakarta-sans-OFL.txt), [Inter](licenses/inter-OFL.txt), and [IBM Plex Sans Arabic](licenses/ibm-plex-sans-arabic-OFL.txt). The VENTRO abstract V, wordmark outlines, icon geometry, SVG exports, and Open Graph composition are original project assets. Making these files available is not a statement about trademark registration.

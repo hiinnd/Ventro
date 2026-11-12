@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@ventro/ui'],
   poweredByHeader: false,
   reactStrictMode: true,
+  images: { qualities: [75, 85], formats: ['image/webp'] },
   async headers() {
     return [
       {

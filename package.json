@@ -28,9 +28,10 @@
     "db:validate": "pnpm --filter @ventro/api db:validate",
     "db:migrate": "pnpm --filter @ventro/api db:migrate",
     "db:deploy": "pnpm --filter @ventro/api db:deploy",
+    "db:seed": "pnpm --filter @ventro/api db:seed",
     "brand:generate": "node scripts/generate-brand.mjs",
     "brand:check": "node scripts/generate-brand.mjs --check",
-    "test:ui": "pnpm --filter @ventro/types build && pnpm --filter @ventro/web test:ui"
+    "test:ui": "pnpm --filter @ventro/types build && pnpm --filter @ventro/api build && pnpm --filter @ventro/web test:ui"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

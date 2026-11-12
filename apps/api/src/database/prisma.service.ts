@@ -13,6 +13,8 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
         connectionTimeoutMillis: 2000,
         query_timeout: 2000,
         max: 10,
+        // Prisma's timestamp serialization must use a UTC PostgreSQL session.
+        options: '-c timezone=UTC',
       }),
     });
   }

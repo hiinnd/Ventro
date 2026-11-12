@@ -7,9 +7,6 @@ import { IsString, MinLength } from 'class-validator';
 import request from 'supertest';
 
 const requireCompiled = createRequire(import.meta.url);
-const { AppModule } = requireCompiled(
-  '../dist/app.module.js',
-) as typeof import('../dist/app.module.js');
 const { configureApp } = requireCompiled(
   '../dist/config/configure-app.js',
 ) as typeof import('../dist/config/configure-app.js');
@@ -50,11 +47,13 @@ describe('HTTP infrastructure (dependency doubles; not live database verificatio
   const redis = { ping: vi.fn(async () => {}) };
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
+    process.env.AUTH_SECRET = '01'.repeat(32);
     process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5432/test';
     process.env.REDIS_URL ??= 'redis://127.0.0.1:6379';
     process.env.WEB_ORIGINS = 'http://localhost:3000,http://127.0.0.1:3000';
     process.env.LOG_LEVEL = 'silent';
     process.env.SWAGGER_ENABLED = 'true';
+    const { AppModule } = requireCompiled('../dist/app.module.js') as typeof import('../dist/app.module.js');
     const module = await Test.createTestingModule({
       imports: [AppModule],
       controllers: [ProbeController],

@@ -17,8 +17,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const request = http.getRequest<Request & { id?: string }>();
     const response = http.getResponse<Response>();
-    const status =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const parserType = exception && typeof exception === 'object' && 'type' in exception ? exception.type : undefined;
+    const status = exception instanceof HttpException ? exception.getStatus() : parserType === 'entity.too.large' ? 413 : parserType === 'entity.parse.failed' ? 400 : HttpStatus.INTERNAL_SERVER_ERROR;
     const body = exception instanceof HttpException ? exception.getResponse() : null;
     let message: string | string[] = status >= 500 ? 'Internal server error' : 'Request failed';
     if (status < 500) {
@@ -34,7 +34,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
     if (status === HttpStatus.NOT_FOUND) message = 'Resource not found';
     if (status >= 500)
-      this.logger.error({ err: exception, requestId: request.id }, 'Request failed');
+      this.logger.error({ errorType: exception instanceof Error ? exception.name : 'unknown', requestId: request.id }, 'Request failed');
     const payload: ApiErrorResponse = {
       statusCode: status,
       error: STATUS_CODES[status] ?? 'Error',

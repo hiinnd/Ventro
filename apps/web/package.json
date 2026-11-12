@@ -8,9 +8,13 @@
     "start": "next start --hostname 127.0.0.1 --port 3000",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:ui": "playwright test"
+    "test:ui": "playwright test",
+    "audit:lighthouse": "node scripts/lighthouse.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
+    "@fontsource/ibm-plex-sans-arabic": "5.3.0",
     "@ventro/types": "workspace:*",
     "@ventro/ui": "workspace:*",
     "dotenv": "^17.2.3",
@@ -18,20 +22,19 @@
     "next": "16.4.6",
     "next-themes": "^0.4.6",
     "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "@fontsource-variable/plus-jakarta-sans": "5.3.0",
-    "@fontsource-variable/inter": "5.3.0",
-    "@fontsource/ibm-plex-sans-arabic": "5.3.0"
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.0",
     "@tailwindcss/postcss": "4.3.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@ventro/config": "workspace:*",
+    "axe-core": "4.14.0",
+    "chrome-launcher": "1.2.3",
+    "lighthouse": "13.6.0",
     "tailwindcss": "4.3.5",
     "typescript": "5.9.3",
-    "vitest": "5.1.0",
-    "@playwright/test": "1.65.0",
-    "axe-core": "4.14.0"
+    "vitest": "5.1.0"
   }
 }

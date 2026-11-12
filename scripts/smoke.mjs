@@ -18,7 +18,44 @@ assert.equal(proxied.status, 200);
 assert.deepEqual((await proxied.json()).checks, data.checks);
 const page = await get(web, '/');
 assert.equal(page.status, 200);
-assert.match(await page.text(), /VENTRO/);
+const html = await page.text();
+assert.match(html, /VENTRO/);
+assert.match(html, /brand\/favicon\.svg/);
+const manifestResponse = await get(web, '/manifest.webmanifest');
+assert.equal(manifestResponse.status, 200);
+const manifest = await manifestResponse.json();
+assert.equal(manifest.name, 'VENTRO');
+assert.ok(manifest.icons.some((icon) => icon.src === '/brand/app-icon.svg'));
+assert.equal((await get(web, '/brand/app-icon.svg')).status, 200);
+const developmentPage = await get(web, '/dev/design-system');
+assert.equal(developmentPage.status, 404, 'The design showcase must be unavailable in production');
+assert.equal((await get(web, '/dev/foundation')).status, 404);
+const rootRedirect = await get(web, '/', { redirect: 'manual' });
+assert.equal(rootRedirect.status, 308);
+assert.equal(new URL(rootRedirect.headers.get('location'), web).pathname, '/en');
+for (const locale of ['en', 'ar']) {
+  for (const path of [
+    '',
+    '/features',
+    '/solutions',
+    '/pricing',
+    '/about',
+    '/contact',
+    '/faq',
+    '/privacy',
+    '/terms',
+  ]) {
+    const response = await get(web, '/' + locale + path);
+    assert.equal(response.status, 200, locale + path);
+    const body = await response.text();
+    assert.ok(body.includes('lang="' + locale + '"'));
+    assert.ok(body.includes('dir="' + (locale === 'ar' ? 'rtl' : 'ltr') + '"'));
+    assert.ok(body.includes('rel="canonical"'));
+  }
+}
+assert.equal((await get(web, '/en/unknown')).status, 404);
+assert.equal((await get(web, '/og')).headers.get('content-type'), 'image/png');
+assert.equal(((await (await get(web, '/sitemap.xml')).text()).match(/<url>/g) ?? []).length, 18);
 const rejected = await get(api, '/api/health', {
   headers: { Origin: 'https://untrusted.example' },
 });
@@ -28,5 +65,5 @@ const openapi = await get(api, '/api/openapi.json');
 assert.equal(openapi.status, 200);
 assert.ok((await openapi.json()).paths['/api/health']);
 console.log(
-  'PASS: live API, real readiness, origin restrictions, request IDs, OpenAPI, frontend page and frontend-to-backend proxy.',
+  'PASS: real readiness, CORS, request IDs, OpenAPI, frontend proxy, brand manifest/icons, 18 localized public pages, metadata/OG/sitemap, and production development-route guards.',
 );

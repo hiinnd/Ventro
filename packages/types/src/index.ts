@@ -20,3 +20,11 @@ export interface ApiErrorResponse {
   requestId: string;
 }
 export type Locale = 'en' | 'ar';
+
+export const authUserSchema = z.object({
+  id: z.uuid(), email: z.email(), name: z.string(), locale: z.enum(['en', 'ar']),
+  emailVerifiedAt: z.iso.datetime().nullable(), createdAt: z.iso.datetime(),
+});
+export const authSessionSchema = z.object({ user: authUserSchema, expiresAt: z.iso.datetime(), absoluteExpiresAt: z.iso.datetime() });
+export type AuthUser = z.infer<typeof authUserSchema>;
+export type AuthSession = z.infer<typeof authSessionSchema>;
