@@ -30,8 +30,11 @@ async function requestAuth(action: string, body: unknown, method = 'POST'): Prom
     method,
     credentials: 'same-origin',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', 'X-Ventro-CSRF': '1' },
-    body: JSON.stringify(body),
+    headers:
+      method === 'GET'
+        ? undefined
+        : { 'Content-Type': 'application/json', 'X-Ventro-CSRF': '1' },
+    body: method === 'GET' ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw new AuthError(response.status);
   return response.status === 204 ? null : response.json();
@@ -357,14 +360,18 @@ export function AuthForm({
               if (needsToken && !token) return;
               void run(async () => {
                 if (view === 'login') {
-                  authSessionSchema.parse(
-                    await requestAuth('login', { email: email.trim(), password }),
-                  );
+                  authSessionSchema.parse(await requestAuth('login', { email: email.trim(), password }));
                   setPassword('');
-                  router.replace(
+                  // A full navigation makes the browser attach the freshly set
+                  // HTTP-only session cookie before a protected server route is
+                  // evaluated. Client-side RSC navigation can otherwise race
+                  // the Set-Cookie response and immediately bounce to login.
+                  // Confirming the session through the same origin also waits
+                  // for the browser to commit the Set-Cookie response.
+                  authSessionSchema.parse(await requestAuth('session', {}, 'GET'));
+                  window.location.assign(
                     safeLoginDestination(new URLSearchParams(location.search).get('next'), locale),
                   );
-                  router.refresh();
                 } else if (view === 'register') {
                   await requestAuth('register', {
                     name: name.trim(),

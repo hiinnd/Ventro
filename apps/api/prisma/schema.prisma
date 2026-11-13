@@ -47,6 +47,45 @@ enum EmailStatus {
   CANCELLED
 }
 
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  UNPUBLISHED
+  CANCELLED
+}
+
+enum EventVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum EventLocationType {
+  VENUE
+  ONLINE
+}
+
+enum EventMediaKind {
+  COVER
+}
+
+enum FormFieldType {
+  TEXT
+  TEXTAREA
+  EMAIL
+  PHONE
+  NUMBER
+  SELECT
+  RADIO
+  CHECKBOX
+  DATE
+  CONSENT
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
 model User {
   id                String       @id @default(uuid()) @db.Uuid
   email             String       @unique @db.VarChar(254)
@@ -67,6 +106,7 @@ model User {
   auditLogs          AuditLog[]
   emailDeliveries    EmailOutbox[]
   sentInvitations    OrganizationInvitation[]
+  registrations      Registration[]
 }
 
 model Session {
@@ -130,6 +170,157 @@ model Organization {
   invitations    OrganizationInvitation[]
   activeSessions Session[]
   logo           OrganizationLogo?
+  events         Event[]
+  eventCategories EventCategory[]
+}
+
+model EventCategory {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  name           String       @db.VarChar(80)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events         Event[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId, createdAt])
+}
+
+model Event {
+  id                   String            @id @default(uuid()) @db.Uuid
+  organizationId       String            @db.Uuid
+  categoryId           String?           @db.Uuid
+  title                String            @default("") @db.VarChar(180)
+  description          String            @default("") @db.VarChar(10000)
+  slug                 String            @unique @db.VarChar(120)
+  status               EventStatus       @default(DRAFT)
+  visibility           EventVisibility   @default(PRIVATE)
+  locationType         EventLocationType @default(VENUE)
+  venue                String            @default("") @db.VarChar(300)
+  onlineUrl            String            @default("") @db.VarChar(500)
+  timezone             String            @default("Asia/Amman") @db.VarChar(80)
+  startsAt             DateTime?         @db.Timestamptz(3)
+  endsAt               DateTime?         @db.Timestamptz(3)
+  capacity             Int?
+  registrationDeadline DateTime?         @db.Timestamptz(3)
+  publishedAt          DateTime?         @db.Timestamptz(3)
+  cancelledAt          DateTime?         @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(3)
+  organization         Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category             EventCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  speakers             EventSpeaker[]
+  sessions             EventSession[]
+  media                EventMedia[]
+  registrationForm     RegistrationForm?
+  registrations        Registration[]
+
+  @@index([organizationId, updatedAt])
+  @@index([status, visibility, startsAt])
+  @@index([categoryId])
+}
+
+model RegistrationForm {
+  id          String      @id @default(uuid()) @db.Uuid
+  eventId     String      @unique @db.Uuid
+  status      String      @default("DRAFT") @db.VarChar(16)
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fields      FormField[]
+}
+
+model FormField {
+  id                String        @id @default(uuid()) @db.Uuid
+  registrationFormId String       @db.Uuid
+  key               String        @db.VarChar(64)
+  type              FormFieldType
+  label             String        @db.VarChar(180)
+  helpText          String        @default("") @db.VarChar(500)
+  required          Boolean       @default(false)
+  options           Json?
+  visibilityRule    Json?
+  position          Int           @default(0)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  registrationForm  RegistrationForm @relation(fields: [registrationFormId], references: [id], onDelete: Cascade)
+  answers           RegistrationAnswer[]
+
+  @@unique([registrationFormId, key])
+  @@index([registrationFormId, position])
+}
+
+model Registration {
+  id          String             @id @default(uuid()) @db.Uuid
+  eventId     String             @db.Uuid
+  userId      String             @db.Uuid
+  status      RegistrationStatus @default(CONFIRMED)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
+  event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers     RegistrationAnswer[]
+
+  @@unique([eventId, userId])
+  @@index([userId, createdAt])
+  @@index([eventId, status, createdAt])
+}
+
+model RegistrationAnswer {
+  id             String       @id @default(uuid()) @db.Uuid
+  registrationId String       @db.Uuid
+  formFieldId    String       @db.Uuid
+  value          Json
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  formField      FormField    @relation(fields: [formFieldId], references: [id], onDelete: Restrict)
+
+  @@unique([registrationId, formFieldId])
+  @@index([formFieldId])
+}
+
+model EventSpeaker {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @db.Uuid
+  name      String   @db.VarChar(120)
+  title     String   @default("") @db.VarChar(160)
+  bio       String   @default("") @db.VarChar(2000)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sessions  EventSession[]
+
+  @@index([eventId, position])
+}
+
+model EventSession {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventId     String   @db.Uuid
+  speakerId   String?  @db.Uuid
+  title       String   @db.VarChar(180)
+  description String   @default("") @db.VarChar(3000)
+  startsAt    DateTime @db.Timestamptz(3)
+  endsAt      DateTime @db.Timestamptz(3)
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  speaker     EventSpeaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+
+  @@index([eventId, startsAt])
+  @@index([speakerId])
+}
+
+model EventMedia {
+  id        String         @id @default(uuid()) @db.Uuid
+  eventId   String         @db.Uuid
+  kind      EventMediaKind
+  data      Bytes
+  mimeType  String         @db.VarChar(80)
+  digest    String         @db.Char(64)
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+  event     Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, kind])
+  @@index([eventId])
 }
 
 model OrganizationLogo {

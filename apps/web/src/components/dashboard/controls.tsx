@@ -82,10 +82,10 @@ export function OrganizationSwitcher({
         className="dash-org-trigger"
         variant="ghost"
         onClick={() => setOpen(true)}
-        aria-label={t('Switch organization', 'تبديل المؤسسة')}
+        aria-label={organization.name + ' — ' + t('Switch organization', 'تبديل المؤسسة')}
       >
         <OrganizationAvatar organization={organization} />
-        <span className="min-w-0 text-start">
+        <span className="min-w-0 text-start" aria-hidden>
           <span className="dash-org-trigger-label">{t('ORGANIZATION', 'المؤسسة')}</span>
           <span className="block truncate font-semibold">{organization.name}</span>
         </span>
@@ -124,7 +124,6 @@ export function OrganizationChoices({
   onSelected?: () => void;
 }) {
   const t: Copy = (en, ar) => text(locale, en, ar);
-  const router = useRouter();
   const [page, setPage] = useState(1);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -141,8 +140,11 @@ export function OrganizationChoices({
         body: {},
       });
       onSelected?.();
-      router.push(dashboardRoute(locale, org.id, section));
-      router.refresh();
+      // Activating a workspace rotates server-side session state. Navigate
+      // after the response cookie has committed rather than reusing the RSC
+      // tree that rendered the picker with the prior active organization.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      window.location.assign(dashboardRoute(locale, org.id, section));
     } catch {
       setFailed(true);
     } finally {
@@ -236,12 +238,12 @@ export function DashboardSearch({
       <Button
         variant="outline"
         className="dash-search-trigger"
-        aria-label={t('Search workspace', 'البحث في مساحة العمل')}
+        aria-label={t('Search workspace…', 'ابحث في مساحة العمل…')}
         onClick={() => setOpen(true)}
       >
         <DashboardIcon name="search" className="size-4" />
-        <span>{t('Search workspace…', 'ابحث في مساحة العمل…')}</span>
-        <kbd>⌘ / Ctrl K</kbd>
+        <span aria-hidden>{t('Search workspace…', 'ابحث في مساحة العمل…')}</span>
+        <kbd aria-hidden>⌘ / Ctrl K</kbd>
       </Button>
       <Modal
         open={open}

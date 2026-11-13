@@ -1,7 +1,11 @@
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import type { NextConfig } from 'next';
-config({ path: resolve(process.cwd(), '../../.env'), quiet: true });
+
+// Next can be started through a root workspace script or directly from
+// apps/web. Resolve relative to this config file so server-only API settings
+// do not disappear in either path.
+config({ path: resolve(import.meta.dirname, '../../.env'), quiet: true });
 const nextConfig: NextConfig = {
   transpilePackages: ['@ventro/ui'],
   poweredByHeader: false,

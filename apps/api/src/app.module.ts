@@ -8,14 +8,21 @@ import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationModule } from './organizations/organization.module';
+import { EventsModule } from './events/events.module';
+import { RegistrationsModule } from './registrations/registrations.module';
 import { validateEnvironment, type Environment } from './config/environment';
+
+// Commands may be invoked from the repository root, an individual workspace,
+// or a test runner. Resolve from this module instead of process.cwd() so every
+// entry point reads the same root development environment.
+const environmentFile = resolve(__dirname, '../../../.env');
 
 @Module({
   providers: [{ provide: APP_FILTER, useClass: HttpExceptionFilter }],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: resolve(process.cwd(), '../../.env'),
+      envFilePath: environmentFile,
       validate: validateEnvironment,
     }),
     LoggerModule.forRootAsync({
@@ -43,6 +50,8 @@ import { validateEnvironment, type Environment } from './config/environment';
     HealthModule,
     AuthModule,
     OrganizationModule,
+    EventsModule,
+    RegistrationsModule,
   ],
 })
 export class AppModule {}

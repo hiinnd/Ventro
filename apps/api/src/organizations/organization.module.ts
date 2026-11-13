@@ -10,5 +10,6 @@ import { DashboardService } from './dashboard.service';
   imports: [AuthModule, DatabaseModule, RedisModule],
   controllers: [OrganizationController, PlatformController],
   providers: [OrganizationService, DashboardService, OrganizationOriginGuard, PlatformAdminGuard],
+  exports: [OrganizationService, OrganizationOriginGuard],
 })
 export class OrganizationModule {}

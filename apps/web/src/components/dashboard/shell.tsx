@@ -32,6 +32,8 @@ import {
 } from './controls';
 import { DashboardIcon } from './icons';
 import { DashboardOverviewPanel, PlannedDashboardSection } from './overview';
+import { EventsPanel } from '../events/events-panel';
+import { OrganizerRegistrations } from '../registrations/organizer-registrations';
 
 function OrganizerNavigation({
   locale,
@@ -207,6 +209,10 @@ export function OrganizerDashboard({
           </div>
           {section === 'overview' ? (
             <DashboardOverviewPanel locale={locale} organization={organization} />
+          ) : section === 'events' ? (
+            <EventsPanel locale={locale} organization={organization} />
+          ) : section === 'registrations' ? (
+            <OrganizerRegistrations locale={locale} organization={organization} />
           ) : section === 'team' ? (
             <Team locale={locale} organization={organization} currentUserId={session.user.id} />
           ) : section === 'settings' ? (

@@ -1,5 +1,9 @@
 # Project state
 
+> Working update — Phase 6 dashboard browser regression and Phase 7 event management are in progress. Phase 7 has a locally applied Prisma migration for event records/categories/speakers/sessions/media, tenant-scoped API commands, bounded cover storage, and separated public reads. Final verification results will replace this update when the phase is complete.
+
+> Phase 8 working update — a locally applied migration adds registration forms, fields, registrations, and answers. Server-side schema/submission validation, tenant-scoped organizer APIs, duplicate prevention and capacity locking are implemented. The organizer registration workspace now exposes form building, publishing, field ordering/conditional visibility, search/filter and CSV export; public registration, confirmation, and My Registrations views are connected. Dedicated registration integration/race coverage is still required before this phase can be marked verified.
+
 Updated: 2026-11-13 (Asia/Amman).
 
 ## Current milestone

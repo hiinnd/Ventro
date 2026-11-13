@@ -1,5 +1,7 @@
 # Roadmap
 
+> Working update — Phases 7 and 8 are in implementation. Event lifecycle/public discovery and dynamic registration are connected; both retain dedicated integration and browser verification gates before they can be marked complete.
+
 Phases 1–5 are implemented and verified within their stated scope. Phase 6 organizer dashboard is authorized and in progress. Exact results and host limitations are in PROJECT_STATE. Later entries are dependencies for future planning, not permission to implement.
 
 Phase 2 milestones:

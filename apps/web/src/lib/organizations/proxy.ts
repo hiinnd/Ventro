@@ -11,6 +11,10 @@ import {
   dashboardOverviewSchema,
   dashboardActivityListSchema,
   dashboardNoticesSchema,
+  eventListSchema,
+  eventSchema,
+  registrationFormSchema,
+  registrationListSchema,
 } from '@ventro/types';
 import { authApiUrl } from '../auth/server';
 import { authCookieHeader, isSafeAuthMutation } from '../auth/routes';
@@ -46,6 +50,20 @@ export function organizationProxyTarget(resource: string, segments: string[], me
     return route(dashboardNoticesSchema);
   if (new RegExp('^' + uuid + '/dashboard/search$').test(path) && method === 'POST')
     return route(memberListSchema);
+  if (new RegExp('^' + uuid + '/events$').test(path) && ['GET', 'POST'].includes(method))
+    return route(method === 'GET' ? eventListSchema : eventSchema);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '$').test(path) && ['GET', 'PATCH'].includes(method))
+    return route(eventSchema);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '/(publish|unpublish|cancel|duplicate)$').test(path) && method === 'POST')
+    return route(eventSchema);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '/cover$').test(path) && method === 'POST')
+    return route(eventSchema, false, true);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '/registration-form$').test(path) && ['GET','POST'].includes(method))
+    return route(registrationFormSchema);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '/registration-form/publish$').test(path) && method === 'POST')
+    return route(registrationFormSchema);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '/registrations$').test(path) && method === 'GET')
+    return route(registrationListSchema);
   if (path === 'invitations' && method === 'GET') return route(invitationListSchema);
   if (path === 'invitations/resolve' && method === 'POST') return route(invitationSchema);
   if (new RegExp('^invitations/' + uuid + '/(accept|reject)$').test(path) && method === 'POST')

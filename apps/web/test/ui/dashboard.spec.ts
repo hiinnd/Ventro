@@ -80,7 +80,7 @@ test('organizer overview uses real metrics, searchable team data, live notices a
   await nav.getByRole('link', { name: 'Team', exact: true }).click(); await expect(page.getByRole('heading', { name: 'Invite a teammate', exact: true })).toBeVisible();
   await nav.getByRole('link', { name: 'Overview', exact: true }).click();
   await page.getByRole('button', { name: 'Switch theme', exact: true }).click(); await expect(page.locator('html')).toHaveClass(/dark/); await audit(page);
-  await page.getByRole('button', { name: 'Switch organization', exact: true }).click();
+  await page.getByRole('button', { name: /Switch organization$/, exact: false }).click();
   const switcher = page.getByRole('dialog'); await expect(switcher.getByRole('button', { name: /Private Other Studio/ })).toHaveCount(0);
   await switcher.getByRole('button', { name: /MENA Creative Collective/ }).click(); await expect(page).toHaveURL(route(second));
   await metric(page, 'Team members', '1'); expect((await (await page.request.get('/api/auth/session')).json()).activeOrganizationId).toBe(second);

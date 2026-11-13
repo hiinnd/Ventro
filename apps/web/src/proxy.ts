@@ -24,15 +24,17 @@ export async function proxy(request: NextRequest) {
   const slug = path.split('/').filter(Boolean).slice(1);
   const authPage = slug.length === 1 && isAuthPage(slug[0]!) ? slug[0] : undefined;
   const workspace = workspacePage(slug);
-  if (locale && !pageFromSlug(slug) && !authPage && !workspace)
+  const publicEvents = slug[0] === 'events' && (slug.length === 1 || (slug.length === 2 && /^[a-z0-9-]{1,120}$/.test(slug[1]!)));
+  const registrationsPage = slug[0] === 'registrations' && (slug.length === 1 || (slug.length === 2 && slug[1] === 'confirmation'));
+  if (locale && !pageFromSlug(slug) && !publicEvents && !registrationsPage && !authPage && !workspace)
     return new NextResponse('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
   if (locale) headers.set('x-ventro-locale', locale);
-  if (locale && (authPage === 'account' || workspace)) {
+  if (locale && (authPage === 'account' || workspace || registrationsPage)) {
     try {
       const result = await readServerSession(request.headers.get('cookie'));
       if (!result.session) {
         const url = new URL('/' + locale + '/login', request.url);
-        url.searchParams.set('next', workspace ? path : '/' + locale + '/account');
+        url.searchParams.set('next', workspace || registrationsPage ? path : '/' + locale + '/account');
         const response = NextResponse.redirect(url);
         response.headers.set('Cache-Control', 'no-store');
         for (const cookie of result.cookies) response.headers.append('Set-Cookie', cookie);
@@ -86,7 +88,7 @@ export async function proxy(request: NextRequest) {
     }
   }
   const response = NextResponse.next({ request: { headers } });
-  if (authPage || workspace) {
+  if (authPage || workspace || registrationsPage) {
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('X-Robots-Tag', 'noindex');
   }

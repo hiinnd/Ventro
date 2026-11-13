@@ -4,6 +4,10 @@
 
 VENTRO is a pnpm modular monolith: one Next.js web application and one NestJS API backed by PostgreSQL and Redis. There are no business modules in Phase 1. Socket.IO and BullMQ belong to later approved real-time and background-job milestones; their services and packages are deliberately not initialized yet.
 
+Event management is an organization-scoped module in the same NestJS process. Prisma owns `Event`, `EventCategory`, `EventSpeaker`, `EventSession`, and bounded `EventMedia` persistence; public reads are deliberately separated from authenticated organizer commands. See [EVENTS](EVENTS.md).
+
+Registration forms and submissions are an adjacent transactional module. Capacity is guarded with PostgreSQL row locking and a unique attendee/event constraint, not browser counters. See [REGISTRATIONS](REGISTRATIONS.md).
+
 ```mermaid
 flowchart LR
   Browser["Browser · Arabic / English"] --> Web["Next.js App Router"]
