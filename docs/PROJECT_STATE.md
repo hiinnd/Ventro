@@ -4,7 +4,7 @@ Updated: 2026-11-13 (Asia/Amman).
 
 ## Current milestone
 
-Phases 1–5 are implemented and verified within their stated scope. Phase 5 organization management, private logos, invitations, switching and server-enforced RBAC are complete. Existing Phase 4 working-tree changes were preserved. Final workspace checks/builds, real-service integration and production-artifact authentication/organization browser checks passed. Event business logic remains outside this phase. No deployment has been started.
+Phases 1–5 are implemented and verified within their stated scope. Phase 6 organizer dashboard is authorized and in progress. The existing repository was clean at the start of this phase. Tenant-aware read models for real organization metrics/activity/search/notices are implemented; backend verification and the responsive localized shell are underway. Event business logic remains outside this phase. No deployment has been started.
 
 ## Completed implementation
 

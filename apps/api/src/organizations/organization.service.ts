@@ -108,6 +108,21 @@ export class OrganizationService {
       return operation(tx, member.role);
     });
   }
+  // Reuse the same live-session/tenant transaction for organizer read models.
+  withTenant<T>(
+    auth: AuthContext,
+    id: string,
+    permission: OrganizationPermission,
+    operation: (tx: Prisma.TransactionClient, role: AssignRoleDto['role']) => Promise<T>,
+  ) {
+    return this.tenant(auth, id, permission, operation);
+  }
+  withVerifiedActor<T>(auth: AuthContext, operation: (tx: Prisma.TransactionClient) => Promise<T>) {
+    return this.db.$transaction(async (tx) => {
+      await this.actor(tx, auth);
+      return operation(tx);
+    });
+  }
   private async detail(tx: Prisma.TransactionClient, id: string, role: AssignRoleDto['role']) {
     const row = await tx.organization.findUniqueOrThrow({ where: { id }, select: orgSelect });
     const { logo, ...fields } = row;

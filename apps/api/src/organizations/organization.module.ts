@@ -5,9 +5,10 @@ import { RedisModule } from '../redis/redis.module';
 import { OrganizationController, PlatformController } from './organization.controller';
 import { OrganizationService } from './organization.service';
 import { OrganizationOriginGuard, PlatformAdminGuard } from './organization.guards';
+import { DashboardService } from './dashboard.service';
 @Module({
   imports: [AuthModule, DatabaseModule, RedisModule],
   controllers: [OrganizationController, PlatformController],
-  providers: [OrganizationService, OrganizationOriginGuard, PlatformAdminGuard],
+  providers: [OrganizationService, DashboardService, OrganizationOriginGuard, PlatformAdminGuard],
 })
 export class OrganizationModule {}

@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases 1–5 are implemented and verified within their stated scope. Phase 5 includes real organization management/RBAC, isolated-database integration, localized browser flows, strict workspace checks, builds and production-artifact verification. Exact results and host limitations are in PROJECT_STATE. Later entries are dependencies for future planning, not permission to implement.
+Phases 1–5 are implemented and verified within their stated scope. Phase 6 organizer dashboard is authorized and in progress. Exact results and host limitations are in PROJECT_STATE. Later entries are dependencies for future planning, not permission to implement.
 
 Phase 2 milestones:
 

@@ -38,6 +38,12 @@ import {
 } from './organization.dto';
 import { OrganizationOriginGuard, PlatformAdminGuard } from './organization.guards';
 import { OrganizationService } from './organization.service';
+import { DashboardService } from './dashboard.service';
+import {
+  DashboardActivityQuery,
+  DashboardOverviewQuery,
+  DashboardSearchDto,
+} from './dashboard.dto';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 @ApiTags('Organizations')
@@ -46,7 +52,10 @@ const uuid = new ParseUUIDPipe({ version: '4' });
 @AuthRate('org-read')
 @UseGuards(OrganizationOriginGuard, AuthRateGuard, SessionGuard, VerifiedEmailGuard)
 export class OrganizationController {
-  constructor(private readonly organizations: OrganizationService) {}
+  constructor(
+    private readonly organizations: OrganizationService,
+    private readonly dashboard: DashboardService,
+  ) {}
   @Get()
   list(@Req() req: AuthRequest, @Query() query: PageDto) {
     return this.organizations.list(authenticated(req), query.page);
@@ -77,6 +86,39 @@ export class OrganizationController {
   @AuthRate('org-write')
   reject(@Req() req: AuthRequest, @Param('invitationId', uuid) id: string) {
     return this.organizations.respond(authenticated(req), id, false, auditContext(req));
+  }
+  @Get('dashboard-options')
+  dashboardOptions(@Req() req: AuthRequest, @Query() query: PageDto) {
+    return this.dashboard.options(authenticated(req), query.page);
+  }
+  @Get(':organizationId/dashboard/overview')
+  overview(
+    @Req() req: AuthRequest,
+    @Param('organizationId', uuid) id: string,
+    @Query() query: DashboardOverviewQuery,
+  ) {
+    return this.dashboard.overview(authenticated(req), id, query);
+  }
+  @Get(':organizationId/dashboard/activity')
+  activity(
+    @Req() req: AuthRequest,
+    @Param('organizationId', uuid) id: string,
+    @Query() query: DashboardActivityQuery,
+  ) {
+    return this.dashboard.activity(authenticated(req), id, query);
+  }
+  @Get(':organizationId/dashboard/notices')
+  notices(@Req() req: AuthRequest, @Param('organizationId', uuid) id: string) {
+    return this.dashboard.notices(authenticated(req), id);
+  }
+  @Post(':organizationId/dashboard/search')
+  @HttpCode(200)
+  search(
+    @Req() req: AuthRequest,
+    @Param('organizationId', uuid) id: string,
+    @Body() body: DashboardSearchDto,
+  ) {
+    return this.dashboard.search(authenticated(req), id, body);
   }
   @Get(':organizationId')
   get(@Req() req: AuthRequest, @Param('organizationId', uuid) id: string) {

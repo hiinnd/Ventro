@@ -47,8 +47,8 @@ export const organizationRoleSchema = z.enum([
 ]);
 export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
 export const organizationPermissions = {
-  OWNER: ['organization:read', 'organization:write', 'team:read', 'team:write'],
-  EVENT_MANAGER: ['organization:read', 'team:read'],
+  OWNER: ['organization:read', 'organization:write', 'team:read', 'team:write', 'dashboard:read'],
+  EVENT_MANAGER: ['organization:read', 'team:read', 'dashboard:read'],
   CHECK_IN_STAFF: ['organization:read'],
   PARTICIPANT: ['organization:read'],
 } as const;
@@ -111,3 +111,54 @@ export const platformOrganizationSchema = z.object({
   members: z.number().int(),
 });
 export const platformOrganizationListSchema = paginatedSchema(platformOrganizationSchema);
+
+export const dashboardSectionSchema = z.enum([
+  'overview',
+  'events',
+  'registrations',
+  'attendees',
+  'sessions',
+  'polls',
+  'certificates',
+  'analytics',
+  'team',
+  'settings',
+]);
+export type DashboardSection = z.infer<typeof dashboardSectionSchema>;
+export const dashboardActivityGroupSchema = z.enum(['ALL', 'TEAM', 'INVITATIONS', 'SETTINGS']);
+export const dashboardActivitySchema = z.object({
+  id: z.uuid(),
+  action: z.string().max(64),
+  actorName: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export const dashboardActivityListSchema = paginatedSchema(dashboardActivitySchema);
+export type DashboardActivity = z.infer<typeof dashboardActivitySchema>;
+export const dashboardOverviewSchema = z.object({
+  organizationId: z.uuid(),
+  generatedAt: z.iso.datetime(),
+  range: z.enum(['7', '30']),
+  metrics: z.object({
+    members: z.number().int().nonnegative(),
+    activeMembers: z.number().int().nonnegative(),
+    activeOwners: z.number().int().nonnegative(),
+    pendingInvitations: z.number().int().nonnegative(),
+  }),
+  roles: z.array(z.object({ role: organizationRoleSchema, count: z.number().int().nonnegative() })),
+  activity: z
+    .array(z.object({ date: z.iso.date(), count: z.number().int().nonnegative() }))
+    .max(30),
+});
+export type DashboardOverview = z.infer<typeof dashboardOverviewSchema>;
+export const dashboardNoticesSchema = z.object({
+  organizationId: z.uuid(),
+  generatedAt: z.iso.datetime(),
+  items: z.array(
+    z.object({
+      code: z.enum(['PROFILE_DETAILS', 'INVITATIONS_PENDING', 'INVITATIONS_EXPIRED']),
+      count: z.number().int().positive(),
+      section: z.enum(['team', 'settings']),
+    }),
+  ),
+});
+export type DashboardNotices = z.infer<typeof dashboardNoticesSchema>;

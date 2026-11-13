@@ -9,6 +9,7 @@
 @import './marketing.css';
 @import './auth.css';
 @import './workspace.css';
+@import './dashboard.css';
 @source '../../../../packages/ui/src';
 
 @theme inline {

@@ -318,6 +318,166 @@ describe('organization isolation and RBAC with isolated PostgreSQL, real Redis a
       await call(actor, 'get', 'platform/organizations').expect(403);
     });
   }
+  it('returns database-backed organizer metrics and UTC activity without fabricated event measures', async () => {
+    const response = await call(
+      owner,
+      'get',
+      'organizations/' + orgId + '/dashboard/overview',
+    ).expect(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.body.organizationId).toBe(orgId);
+    expect(response.body.metrics).toEqual({
+      members: 4,
+      activeMembers: 4,
+      activeOwners: 1,
+      pendingInvitations: 0,
+    });
+    expect(response.body.roles).toHaveLength(4);
+    expect(response.body.roles.every((row: { count: number }) => row.count === 1)).toBe(true);
+    expect(response.body.activity).toHaveLength(7);
+    expect(
+      response.body.activity.reduce((sum: number, row: { count: number }) => sum + row.count, 0),
+    ).toBe(1);
+    expect(response.body.activity.at(-1).date).toBe(new Date().toISOString().slice(0, 10));
+    expect(response.body).not.toHaveProperty('events');
+    expect(response.body).not.toHaveProperty('revenue');
+    expect(
+      (
+        await call(owner, 'get', 'organizations/' + orgId + '/dashboard/overview?range=30').expect(
+          200,
+        )
+      ).body.activity,
+    ).toHaveLength(30);
+    await call(owner, 'get', 'organizations/' + orgId + '/dashboard/overview?range=365').expect(
+      400,
+    );
+    await call(
+      owner,
+      'get',
+      'organizations/' + orgId + '/dashboard/overview?organizationId=' + otherOrgId,
+    ).expect(400);
+  });
+  it('restricts every organizer read model by live role, tenant and verified session', async () => {
+    for (const action of ['overview', 'activity', 'notices']) {
+      await call(undefined, 'get', 'organizations/' + orgId + '/dashboard/' + action).expect(401);
+      await call(outsider, 'get', 'organizations/' + orgId + '/dashboard/' + action).expect(403);
+      await call(
+        people.EVENT_MANAGER!,
+        'get',
+        'organizations/' + orgId + '/dashboard/' + action,
+      ).expect(200);
+      for (const role of ['CHECK_IN_STAFF', 'PARTICIPANT'])
+        await call(people[role]!, 'get', 'organizations/' + orgId + '/dashboard/' + action).expect(
+          403,
+        );
+    }
+    await call(outsider, 'post', 'organizations/' + orgId + '/dashboard/search', {
+      q: 'Organization',
+    }).expect(403);
+    await call(people.PARTICIPANT!, 'post', 'organizations/' + orgId + '/dashboard/search', {
+      q: 'Organization',
+    }).expect(403);
+    const unverified = await person(false);
+    await call(unverified, 'get', 'organizations/dashboard-options').expect(403);
+  });
+  it('projects scoped activity and role-appropriate actionable notices without raw audit metadata', async () => {
+    const activity = await call(
+      owner,
+      'get',
+      'organizations/' + orgId + '/dashboard/activity',
+    ).expect(200);
+    expect(activity.body.total).toBe(1);
+    expect(activity.body.items[0].action).toBe('ORGANIZATION_CREATED');
+    expect(Object.keys(activity.body.items[0]).sort()).toEqual([
+      'action',
+      'actorName',
+      'createdAt',
+      'id',
+    ]);
+    const filtered = await call(
+      owner,
+      'get',
+      'organizations/' + orgId + '/dashboard/activity?action=TEAM',
+    ).expect(200);
+    expect(filtered.body.items).toEqual([]);
+    await call(owner, 'get', 'organizations/' + orgId + '/dashboard/activity?page=0').expect(400);
+    await call(owner, 'get', 'organizations/' + orgId + '/dashboard/activity?action=AUTH').expect(
+      400,
+    );
+    const notice = await call(owner, 'get', 'organizations/' + orgId + '/dashboard/notices').expect(
+      200,
+    );
+    expect(notice.body.items).toContainEqual({
+      code: 'PROFILE_DETAILS',
+      count: 2,
+      section: 'settings',
+    });
+    expect(
+      (
+        await call(
+          people.EVENT_MANAGER!,
+          'get',
+          'organizations/' + orgId + '/dashboard/notices',
+        ).expect(200)
+      ).body.items,
+    ).toEqual([]);
+  });
+  it('searches only the current team, validates filters and keeps search strings out of URL paths', async () => {
+    const search = await call(owner, 'post', 'organizations/' + orgId + '/dashboard/search', {
+      q: owner.email,
+    }).expect(200);
+    expect(search.body.total).toBe(1);
+    expect(search.body.items[0].userId).toBe(owner.id);
+    expect(
+      (
+        await call(owner, 'post', 'organizations/' + orgId + '/dashboard/search', {
+          q: outsider.email,
+        }).expect(200)
+      ).body.total,
+    ).toBe(0);
+    const managers = await call(owner, 'post', 'organizations/' + orgId + '/dashboard/search', {
+      q: 'Organization',
+      role: 'EVENT_MANAGER',
+    }).expect(200);
+    expect(managers.body.items.map((row: { userId: string }) => row.userId)).toEqual([
+      people.EVENT_MANAGER!.id,
+    ]);
+    for (const body of [
+      { q: 'a' },
+      { q: 'Organization', role: 'PLATFORM_ADMIN' },
+      { q: 'Organization', actorId: outsider.id },
+      { q: '\u0000bad' },
+    ])
+      await call(owner, 'post', 'organizations/' + orgId + '/dashboard/search', body).expect(400);
+  });
+  it('switcher options include only organizer memberships and ownership in another tenant grants no dashboard privilege', async () => {
+    const actor = people.CHECK_IN_STAFF!;
+    const owned = await createOrg(actor, 'Staff member separate owned organization');
+    const options = await call(actor, 'get', 'organizations/dashboard-options').expect(200);
+    expect(options.body.items.map((row: { id: string }) => row.id)).toEqual([owned.id]);
+    await call(actor, 'get', 'organizations/' + owned.id + '/dashboard/overview').expect(200);
+    await call(actor, 'get', 'organizations/' + orgId + '/dashboard/overview').expect(403);
+    expect(
+      (await call(owner, 'get', 'organizations/dashboard-options').expect(200)).body.items.every(
+        (row: { id: string }) => row.id !== otherOrgId,
+      ),
+    ).toBe(true);
+  });
+  it('revokes organizer read models immediately on role changes using the same session', async () => {
+    const actor = await person();
+    await db.organizationMember.create({
+      data: { organizationId: orgId, userId: actor.id, role: 'EVENT_MANAGER' },
+    });
+    await call(actor, 'get', 'organizations/' + orgId + '/dashboard/overview').expect(200);
+    await call(owner, 'patch', 'organizations/' + orgId + '/members/' + actor.id, {
+      role: 'PARTICIPANT',
+    }).expect(200);
+    await call(actor, 'get', 'organizations/' + orgId + '/dashboard/overview').expect(403);
+    await call(actor, 'post', 'organizations/' + orgId + '/dashboard/search', {
+      q: 'Organization',
+    }).expect(403);
+    await call(owner, 'delete', 'organizations/' + orgId + '/members/' + actor.id).expect(200);
+  });
   it('updates profile settings with server validation and persists a sanitized private logo', async () => {
     await call(owner, 'patch', 'organizations/' + orgId, profile('Updated tenant')).expect(200);
     await call(owner, 'patch', 'organizations/' + orgId, {

@@ -8,6 +8,9 @@ import {
   organizationListSchema,
   organizationSchema,
   platformOrganizationListSchema,
+  dashboardOverviewSchema,
+  dashboardActivityListSchema,
+  dashboardNoticesSchema,
 } from '@ventro/types';
 import { authApiUrl } from '../auth/server';
 import { authCookieHeader, isSafeAuthMutation } from '../auth/routes';
@@ -34,6 +37,15 @@ export function organizationProxyTarget(resource: string, segments: string[], me
   });
   if (!path && ['GET', 'POST'].includes(method))
     return route(method === 'GET' ? organizationListSchema : organizationSchema);
+  if (path === 'dashboard-options' && method === 'GET') return route(organizationListSchema);
+  if (new RegExp('^' + uuid + '/dashboard/overview$').test(path) && method === 'GET')
+    return route(dashboardOverviewSchema);
+  if (new RegExp('^' + uuid + '/dashboard/activity$').test(path) && method === 'GET')
+    return route(dashboardActivityListSchema);
+  if (new RegExp('^' + uuid + '/dashboard/notices$').test(path) && method === 'GET')
+    return route(dashboardNoticesSchema);
+  if (new RegExp('^' + uuid + '/dashboard/search$').test(path) && method === 'POST')
+    return route(memberListSchema);
   if (path === 'invitations' && method === 'GET') return route(invitationListSchema);
   if (path === 'invitations/resolve' && method === 'POST') return route(invitationSchema);
   if (new RegExp('^invitations/' + uuid + '/(accept|reject)$').test(path) && method === 'POST')
@@ -90,6 +102,22 @@ export async function proxyOrganization(
   const incoming = new URL(request.url);
   const url = new URL('/api/v1/' + route.path, authApiUrl('session'));
   for (const [key, value] of incoming.searchParams) {
+    if (
+      key === 'range' &&
+      route.path.endsWith('/dashboard/overview') &&
+      ['7', '30'].includes(value)
+    ) {
+      url.searchParams.set(key, value);
+      continue;
+    }
+    if (
+      key === 'action' &&
+      route.path.endsWith('/dashboard/activity') &&
+      ['ALL', 'TEAM', 'INVITATIONS', 'SETTINGS'].includes(value)
+    ) {
+      url.searchParams.set(key, value);
+      continue;
+    }
     if (key === 'v' && route.logo && /^[a-f0-9]{64}$/.test(value)) continue;
     if (key !== 'page' || !/^[1-9][0-9]{0,3}$/.test(value)) return failure(400, 'Invalid page');
     url.searchParams.set(key, value);

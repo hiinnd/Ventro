@@ -239,6 +239,7 @@ export function Workspace({
             {organization && (
               <>
                 <p className="workspace-nav-label mt-6 truncate">{organization.name}</p>
+                {hasOrganizationPermission(organization.role, 'dashboard:read') && <SidebarLink href={orgBase + '/dashboard'}><Icon name="menu" />{t('Organizer dashboard', 'لوحة المنظّم')}</SidebarLink>}
                 <SidebarLink href={orgBase + '/settings'} active={view === 'settings'}>
                   <Icon name="theme" />
                   {t('Organization settings', 'إعدادات المؤسسة')}
@@ -562,6 +563,7 @@ function Organizations({
               {t('Open organization', 'فتح المؤسسة')}
               <Icon name="next" className="rtl:rotate-180" />
             </Button>
+            {hasOrganizationPermission(org.role, 'dashboard:read') && <Button disabled={action.pending} onClick={() => void action.run(async () => { await api('organizations/' + org.id + '/activate', authSessionSchema, 'POST'); onActivate(org.id); router.push('/' + locale + '/organizations/' + org.id + '/dashboard'); })}>{t('Organizer dashboard', 'لوحة المنظّم')}</Button>}
           </Card>
         ))}
       </div>
@@ -572,7 +574,7 @@ function Organizations({
   );
 }
 
-function OrganizationProfile({
+export function OrganizationProfile({
   locale,
   organization,
   onChange,
@@ -845,7 +847,7 @@ function OrganizationProfile({
   );
 }
 
-function Team({
+export function Team({
   locale,
   organization,
   currentUserId,

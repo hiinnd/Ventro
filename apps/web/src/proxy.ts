@@ -43,7 +43,7 @@ export async function proxy(request: NextRequest) {
           status: 403,
           headers: { 'Cache-Control': 'no-store' },
         });
-      if (workspace === 'team' || workspace === 'settings') {
+      if (workspace === 'team' || workspace === 'settings' || workspace === 'dashboard') {
         const upstream = await fetch(
           new URL('/api/v1/organizations/' + slug[1], authApiUrl('session')),
           {
@@ -62,6 +62,11 @@ export async function proxy(request: NextRequest) {
           );
         if (!upstream.ok) throw new Error('Organization unavailable');
         const org = organizationSchema.parse(await upstream.json());
+        if (workspace === 'dashboard' && !hasOrganizationPermission(org.role, 'dashboard:read'))
+          return new NextResponse(
+            locale === 'ar' ? 'الوصول للمنظّمين فقط.' : 'Organizer access is required.',
+            { status: 403, headers: { 'Cache-Control': 'no-store' } },
+          );
         if (workspace === 'team' && !hasOrganizationPermission(org.role, 'team:read'))
           return new NextResponse(
             locale === 'ar' ? 'الوصول غير مسموح.' : 'Access is not allowed.',

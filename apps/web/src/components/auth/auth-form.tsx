@@ -574,6 +574,7 @@ export function AuthForm({
                   {t('Your organizations', 'مؤسساتك')}
                 </Link>
               </Button>
+              <Button asChild variant="outline" className="mb-5 ms-2"><Link href={'/' + locale + '/dashboard'} prefetch={false}>{t('Organizer dashboard', 'لوحة المنظّم')}</Link></Button>
               <h2>{t('Session security', 'أمان الجلسة')}</h2>
               <p>
                 {t('Signed in until ', 'تستمر الجلسة حتى ')}
