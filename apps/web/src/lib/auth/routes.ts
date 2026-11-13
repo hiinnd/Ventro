@@ -1,4 +1,12 @@
 import type { Locale } from '@ventro/types';
+import { workspacePage } from '../organizations/routes';
+export function safeLoginDestination(value: string | null, locale: Locale): string {
+  if (value && value.startsWith('/' + locale + '/') && !/[?#%\\]/.test(value)) {
+    if (value === '/' + locale + '/account' || workspacePage(value.split('/').slice(2)))
+      return value;
+  }
+  return '/' + locale + '/account';
+}
 export const authPages = [
   'login',
   'register',
@@ -11,6 +19,27 @@ export type AuthPage = (typeof authPages)[number];
 export const authRoute = (locale: Locale, page: AuthPage) => '/' + locale + '/' + page;
 export const isAuthPage = (value: string): value is AuthPage =>
   authPages.some((page) => page === value);
+export function isSafeAuthMutation(
+  request: Request,
+  allowedOrigins: readonly string[],
+  contentType = 'application/json',
+): boolean {
+  try {
+    const origin = request.headers.get('origin');
+    if (!origin || !allowedOrigins.includes(origin)) return false;
+    const url = new URL(origin);
+    // Next may canonicalize request.url to localhost; bind to the browser-facing Host instead.
+    return (
+      url.origin === origin &&
+      url.host === request.headers.get('host') &&
+      request.headers.get('x-ventro-csrf') === '1' &&
+      request.headers.get('sec-fetch-site') !== 'cross-site' &&
+      request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() === contentType
+    );
+  } catch {
+    return false;
+  }
+}
 export function authCookieHeader(value: string | null): string {
   const parts =
     value

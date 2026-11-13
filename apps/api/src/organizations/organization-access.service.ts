@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import type { OrganizationRole } from '../generated/prisma/client';
+import type { OrganizationRole, Prisma } from '../generated/prisma/client';
 
 // Callers must obtain userId from an authenticated session, never a submitted actor ID.
 @Injectable()
@@ -10,8 +10,9 @@ export class OrganizationAccessService {
     userId: string,
     organizationId: string,
     roles?: readonly OrganizationRole[],
+    client: Prisma.TransactionClient = this.db,
   ) {
-    const member = await this.db.organizationMember.findFirst({
+    const member = await client.organizationMember.findFirst({
       where: {
         userId,
         organizationId,

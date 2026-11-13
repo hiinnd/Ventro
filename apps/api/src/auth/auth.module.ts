@@ -30,6 +30,16 @@ import { PasswordService } from './password.service';
     VerifiedEmailGuard,
     OrganizationAccessService,
   ],
-  exports: [AuthService, SessionGuard, VerifiedEmailGuard, OrganizationAccessService],
+  exports: [
+    AuthService,
+    SessionGuard,
+    VerifiedEmailGuard,
+    OrganizationAccessService,
+    AuthCookieService,
+    AuthOriginGuard,
+    AuthRateGuard,
+    AuditService,
+    EmailService,
+  ],
 })
 export class AuthModule {}

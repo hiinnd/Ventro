@@ -1716,7 +1716,9 @@ html:has(.marketing) {
   text-underline-offset: 3px;
 }
 @media (max-width: 1279px) {
-  .m-account-link { display: none; }
+  .m-account-link {
+    display: none;
+  }
   .m-desktop-nav,
   .m-header-cta {
     display: none;

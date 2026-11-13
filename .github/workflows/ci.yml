@@ -68,7 +68,7 @@ jobs:
         if: always()
         run: pnpm infra:down
   ui:
-    name: Public website, design system, and real authentication browser checks
+    name: Website, design system, authentication, and organization browser checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

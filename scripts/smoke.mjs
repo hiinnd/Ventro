@@ -56,6 +56,26 @@ for (const locale of ['en', 'ar']) {
 assert.equal((await get(web, '/en/unknown')).status, 404);
 assert.equal((await get(web, '/og')).headers.get('content-type'), 'image/png');
 assert.equal(((await (await get(web, '/sitemap.xml')).text()).match(/<url>/g) ?? []).length, 18);
+const anonymousProfile = await get(web, '/api/auth/profile');
+assert.equal(anonymousProfile.status, 401);
+assert.equal(anonymousProfile.headers.get('cache-control'), 'no-store');
+assert.equal((await get(web, '/api/organizations')).status, 401);
+for (const locale of ['en', 'ar']) {
+  const protectedPage = await get(web, '/' + locale + '/account', { redirect: 'manual' });
+  assert.equal(protectedPage.status, 307);
+  assert.equal(
+    new URL(protectedPage.headers.get('location'), web).pathname,
+    '/' + locale + '/login',
+  );
+  assert.equal((await get(web, '/' + locale + '/login')).status, 200);
+  for (const path of ['/organizations', '/organizations/new', '/invitations', '/platform']) {
+    const response = await get(web, '/' + locale + path, { redirect: 'manual' });
+    assert.equal(response.status, 307);
+    const target = new URL(response.headers.get('location'), web);
+    assert.equal(target.pathname, '/' + locale + '/login');
+    assert.equal(target.searchParams.get('next'), '/' + locale + path);
+  }
+}
 const rejected = await get(api, '/api/health', {
   headers: { Origin: 'https://untrusted.example' },
 });
@@ -63,7 +83,12 @@ assert.equal(rejected.status, 403);
 assert.equal(rejected.headers.get('access-control-allow-origin'), null);
 const openapi = await get(api, '/api/openapi.json');
 assert.equal(openapi.status, 200);
-assert.ok((await openapi.json()).paths['/api/health']);
+const document = await openapi.json();
+assert.ok(document.paths['/api/health']);
+assert.ok(document.paths['/api/v1/auth/login']);
+assert.ok(document.paths['/api/v1/organizations']);
+assert.ok(document.paths['/api/v1/organizations/{organizationId}/members']);
+assert.ok(document.paths['/api/v1/platform/organizations']);
 console.log(
-  'PASS: real readiness, CORS, request IDs, OpenAPI, frontend proxy, brand manifest/icons, 18 localized public pages, metadata/OG/sitemap, and production development-route guards.',
+  'PASS: real readiness, CORS, request IDs, versioned auth/organization OpenAPI, frontend proxy, brand manifest/icons, 18 localized public pages, metadata/OG/sitemap, protected account/organization/invitation/platform pages, and production development-route guards.',
 );

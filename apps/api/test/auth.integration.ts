@@ -55,7 +55,7 @@ async function createApp(smtpPort = 1025) {
   await instance.listen(0, '127.0.0.1');
   return instance;
 }
-function post(action: string, body: unknown = {}, cookie?: string) {
+function post(action: string, body: object = {}, cookie?: string) {
   const call = request(app.getHttpServer())
     .post('/api/v1/auth/' + action)
     .set('Origin', origin)
@@ -73,6 +73,7 @@ async function login(email: string, secret = password) {
   const cookie = headers[0]!.split(';')[0]!;
   return {
     response,
+    cookieHeader: headers[0]!,
     cookie,
     token: cookie.slice(cookie.indexOf('=') + 1),
     session: authSessionSchema.parse(response.body),
@@ -193,9 +194,9 @@ describe('authentication with isolated PostgreSQL, real Redis and SMTP/Mailpit',
     const email = await register();
     const result = await login(email);
     expect(result.response.headers['cache-control']).toBe('no-store');
-    expect(result.response.headers['set-cookie'][0]).toMatch(/HttpOnly/);
-    expect(result.response.headers['set-cookie'][0]).toMatch(/SameSite=Lax/);
-    expect(result.response.headers['set-cookie'][0]).toMatch(/Path=\//);
+    expect(result.cookieHeader).toMatch(/HttpOnly/);
+    expect(result.cookieHeader).toMatch(/SameSite=Lax/);
+    expect(result.cookieHeader).toMatch(/Path=\//);
     expect(JSON.stringify(result.response.body)).not.toContain(result.token);
     expect(JSON.stringify(result.response.body)).not.toContain('passwordHash');
     const stored = await db.session.findUniqueOrThrow({
@@ -437,9 +438,9 @@ describe('authentication with isolated PostgreSQL, real Redis and SMTP/Mailpit',
     await expect(access.requireMembership(first.id, secondOrg.id)).rejects.toThrow(
       'Access is not allowed',
     );
-    await expect(access.requireMembership(first.id, firstOrg.id, ['ADMIN'])).rejects.toThrow(
-      'Access is not allowed',
-    );
+    await expect(
+      access.requireMembership(first.id, firstOrg.id, ['EVENT_MANAGER']),
+    ).rejects.toThrow('Access is not allowed');
     await db.organization.update({ where: { id: firstOrg.id }, data: { archivedAt: new Date() } });
     await expect(access.requireMembership(first.id, firstOrg.id)).rejects.toThrow(
       'Access is not allowed',

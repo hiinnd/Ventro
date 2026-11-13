@@ -341,6 +341,7 @@ export class AuthService {
       locale: user.locale === 'ar' ? ('ar' as const) : ('en' as const),
       emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),
+      platformRole: user.platformRole,
     };
   }
   sessionResponse(auth: AuthContext) {
@@ -348,6 +349,7 @@ export class AuthService {
       user: this.publicUser(auth.user),
       expiresAt: auth.session.expiresAt.toISOString(),
       absoluteExpiresAt: auth.session.absoluteExpiresAt.toISOString(),
+      activeOrganizationId: auth.session.activeOrganizationId,
     };
   }
 }

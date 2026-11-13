@@ -3,6 +3,10 @@ import type { NextRequest } from 'next/server';
 import { pageFromSlug } from './lib/marketing/site';
 import { isAuthPage } from './lib/auth/routes';
 import { readServerSession } from './lib/auth/server';
+import { authApiUrl } from './lib/auth/server';
+import { authCookieHeader } from './lib/auth/routes';
+import { workspacePage } from './lib/organizations/routes';
+import { hasOrganizationPermission, organizationSchema } from '@ventro/types';
 
 // Reject before rendering so the app's loading boundary cannot stream HTTP 200.
 export async function proxy(request: NextRequest) {
@@ -19,19 +23,50 @@ export async function proxy(request: NextRequest) {
   const locale = path.match(/^\/(en|ar)(?:\/|$)/)?.[1];
   const slug = path.split('/').filter(Boolean).slice(1);
   const authPage = slug.length === 1 && isAuthPage(slug[0]!) ? slug[0] : undefined;
-  if (locale && !pageFromSlug(slug) && !authPage)
+  const workspace = workspacePage(slug);
+  if (locale && !pageFromSlug(slug) && !authPage && !workspace)
     return new NextResponse('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
   if (locale) headers.set('x-ventro-locale', locale);
-  if (locale && authPage === 'account') {
+  if (locale && (authPage === 'account' || workspace)) {
     try {
       const result = await readServerSession(request.headers.get('cookie'));
       if (!result.session) {
         const url = new URL('/' + locale + '/login', request.url);
-        url.searchParams.set('next', '/' + locale + '/account');
+        url.searchParams.set('next', workspace ? path : '/' + locale + '/account');
         const response = NextResponse.redirect(url);
         response.headers.set('Cache-Control', 'no-store');
         for (const cookie of result.cookies) response.headers.append('Set-Cookie', cookie);
         return response;
+      }
+      if (workspace === 'platform' && result.session.user.platformRole !== 'PLATFORM_ADMIN')
+        return new NextResponse(locale === 'ar' ? 'الوصول غير مسموح.' : 'Access is not allowed.', {
+          status: 403,
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      if (workspace === 'team' || workspace === 'settings') {
+        const upstream = await fetch(
+          new URL('/api/v1/organizations/' + slug[1], authApiUrl('session')),
+          {
+            headers: { Cookie: authCookieHeader(request.headers.get('cookie')) },
+            cache: 'no-store',
+            redirect: 'error',
+            signal: AbortSignal.timeout(6000),
+          },
+        );
+        if (upstream.status === 403 || upstream.status === 401)
+          return new NextResponse(
+            locale === 'ar'
+              ? 'الوصول غير مسموح. تحقق من عضويتك وبريدك.'
+              : 'Access is not allowed. Check your membership and email verification.',
+            { status: 403, headers: { 'Cache-Control': 'no-store' } },
+          );
+        if (!upstream.ok) throw new Error('Organization unavailable');
+        const org = organizationSchema.parse(await upstream.json());
+        if (workspace === 'team' && !hasOrganizationPermission(org.role, 'team:read'))
+          return new NextResponse(
+            locale === 'ar' ? 'الوصول غير مسموح.' : 'Access is not allowed.',
+            { status: 403, headers: { 'Cache-Control': 'no-store' } },
+          );
       }
     } catch {
       return new NextResponse(
@@ -46,7 +81,10 @@ export async function proxy(request: NextRequest) {
     }
   }
   const response = NextResponse.next({ request: { headers } });
-  if (authPage) response.headers.set('Cache-Control', 'no-store');
+  if (authPage || workspace) {
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('X-Robots-Tag', 'noindex');
+  }
   return response;
 }
 

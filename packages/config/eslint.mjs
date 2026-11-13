@@ -10,6 +10,8 @@ export default [
       '**/dist/**',
       '**/.next/**',
       '**/coverage/**',
+      '**/playwright-report/**',
+      '**/test-results/**',
       '**/src/generated/**',
       '**/next-env.d.ts',
       '.tools/**',

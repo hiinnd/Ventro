@@ -484,6 +484,13 @@ function LegalPage({ locale, page }: { locale: Locale; page: 'privacy' | 'terms'
           ),
         ],
         [
+          t('Organization and team information', 'معلومات المؤسسة والفريق'),
+          t(
+            'Organization profiles, private logo images, role memberships, invitation recipient addresses, and invitation status are stored in PostgreSQL. Owners manage settings and team access. Event Managers can view the team directory, including member names and email addresses; Check-in Staff and Participants cannot view that directory. Invitation links expire after seven days and only the verified invited email can accept or decline. Your active organization is stored in your server-side session and is cleared when your membership is removed. Organization and invitation records remain until managed deletion. Do not upload personal or confidential material as a logo, and invite only people you are authorized to contact.',
+            'تُحفظ ملفات المؤسسات وصور الشعارات الخاصة والعضويات والأدوار وعناوين مستلمي الدعوات وحالاتها في PostgreSQL. يدير المالكون الإعدادات وصلاحيات الفريق. يمكن لمديري الفعاليات الاطّلاع على أسماء أعضاء الفريق وبريدهم، ولا يمكن لموظفي الدخول أو المشاركين عرض هذا الدليل. تنتهي الدعوات بعد سبعة أيام، ولا يقبلها أو يرفضها إلا صاحب البريد المدعو المؤكّد. تُحفظ المؤسسة النشطة في جلسة الخادم وتُزال عند إنهاء العضوية. تبقى سجلات المؤسسات والدعوات حتى حذفها إداريًا. لا ترفع محتوى شخصيًا أو سريًا كشعار، ولا تدعُ أشخاصًا دون صلاحية للتواصل معهم.',
+          ),
+        ],
+        [
           t('Retention and account choices', 'الاحتفاظ وخيارات الحساب'),
           t(
             'While the API is running, hourly maintenance removes sessions/tokens that expired or were consumed more than a day ago, completed email-outbox metadata after seven days, and audit records after ninety days. Sent email payloads are cleared immediately after confirmed SMTP handoff; failed payloads are cleared on expiration. Account records remain until managed deletion; a self-service account-deletion flow is not available in this phase. You can update your name and email-language preference or stop using the account. Final operator contact, hosting/provider retention, and data-request arrangements must be approved before public launch.',

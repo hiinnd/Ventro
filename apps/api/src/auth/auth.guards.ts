@@ -85,6 +85,9 @@ export class AuthOriginGuard implements CanActivate {
 }
 export const AuthRate = (action: string) => SetMetadata('auth-rate-action', action);
 const policies: Record<string, { network: number; account: number; seconds: number }> = {
+  'org-read': { network: 600, account: 300, seconds: 60 },
+  'org-write': { network: 120, account: 60, seconds: 60 },
+  'org-invite': { network: 60, account: 5, seconds: 900 },
   register: { network: 20, account: 3, seconds: 900 },
   login: { network: 60, account: 10, seconds: 900 },
   forgot: { network: 30, account: 3, seconds: 900 },

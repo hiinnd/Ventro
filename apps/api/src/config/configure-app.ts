@@ -21,7 +21,11 @@ export function configureApp(app: INestApplication): void {
     next();
   });
   app.use(helmet());
-  app.use((request: Request, response: Response, next: NextFunction) => { if (request.path.startsWith('/api/v1/auth')) response.setHeader('Cache-Control', 'no-store'); next(); });
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    if (/^\/api\/v1\/(auth|organizations|platform)(?:\/|$)/.test(request.path))
+      response.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(json({ limit: '16kb', strict: true }));
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
@@ -59,7 +63,16 @@ export function configureApp(app: INestApplication): void {
           'VENTRO platform API. Operational health endpoints are version neutral; domain APIs use /api/v1.',
         )
         .setVersion('1.0')
-        .addCookieAuth('ventro_session', { type: 'apiKey', in: 'cookie', description: 'Opaque HTTP-only session. Production uses __Host-ventro_session. Mutations require an allowed Origin, JSON, and X-Ventro-CSRF: 1.' }, 'ventro-session')
+        .addCookieAuth(
+          'ventro_session',
+          {
+            type: 'apiKey',
+            in: 'cookie',
+            description:
+              'Opaque HTTP-only session. Production uses __Host-ventro_session. Mutations require an allowed Origin, JSON, and X-Ventro-CSRF: 1.',
+          },
+          'ventro-session',
+        )
         .build(),
     );
     SwaggerModule.setup('api/docs', app, document, { jsonDocumentUrl: 'api/openapi.json' });

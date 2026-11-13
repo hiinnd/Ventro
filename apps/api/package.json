@@ -13,7 +13,8 @@
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "pnpm build && prisma db seed"
+    "db:seed": "pnpm build && prisma db seed",
+    "platform:admin": "pnpm build && node prisma/platform-admin.mjs"
   },
   "dependencies": {
     "@nestjs/common": "11.2.9",
@@ -38,12 +39,14 @@
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "sharp": "0.35.5",
     "zod": "^4.3.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
     "@nestjs/testing": "11.2.9",
     "@types/express": "^5.0.0",
+    "@types/multer": "2.3.0",
     "@types/nodemailer": "8.0.2",
     "@types/pg": "^8.15.0",
     "@types/supertest": "^6.0.3",

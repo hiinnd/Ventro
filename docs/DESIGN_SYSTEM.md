@@ -87,7 +87,7 @@ pnpm check
 pnpm test:ui
 ```
 
-On Windows, the browser configuration uses installed Chrome when available. Elsewhere, install Chromium once with `pnpm --filter @ventro/web exec playwright install chromium`. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` may point to another compatible local installation. The UI suite starts the development web server automatically; stop any production server on port 3000 first.
+On Windows, the browser configuration uses installed Chrome when available. Elsewhere, install Chromium once with `pnpm --filter @ventro/web exec playwright install chromium`. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` may point to another compatible local installation. Run `pnpm infra:up` and `pnpm db:deploy` before the complete UI suite; it builds and starts/reuses the API and development frontend. Stop any production frontend on port 3000 first. Authentication browser tests require real PostgreSQL, Redis, and Mailpit, and remove only their own uniquely named local `.test` users.
 
 Playwright exercises both languages and themes, desktop/mobile layout, local validation, keyboard selection, focus containment/restoration, confirmation dialogs, menus, tabs, tooltips, feedback recovery, pagination, font loading, SVG exports, and reduced motion. The marketing suite additionally covers all eighteen public URLs, metadata/link integrity, responsive photography, preview tabs, concept filters/dialogs, mobile navigation, FAQ search, and actual clipboard output without contact submission. Axe scans rendered pages and dialogs for WCAG A/AA violations. These checks complement manual visual inspection; they do not constitute a universal accessibility certification. Production smoke checks assert that both development routes are inaccessible in production.
 

@@ -62,12 +62,28 @@ Shared logical spacing supports RTL. Motion reveals move content without fading 
 
 ## Data, isolation, and authorization
 
-There are no domain models, seed business records, tenants, or user accounts in Phase 1. All exposed endpoints are public operational checks containing no tenant data. No repository or domain data endpoint can be added without server-side authorization and tenant ownership.
+Phase 4 adds the authentication database foundation and versioned auth module. Users own opaque, hashed sessions and verification/reset tokens. The development seed creates only an explicitly labeled local account/organization/member/audit fixture. Phase 5 exposes organization management through a dedicated Organizations module; event logic remains absent.
+
+Next.js uses an allowlisted same-origin authentication proxy. Browser forms never read the HTTP-only cookie. Protected account pages are checked before streaming and again server-side; the NestJS guards remain the authority for profile/session data. Passwords use Argon2id, tokens use random 256-bit values stored as hashes, and credential-version/user-row locking protects reset/login/renew races. JSON/origin/custom-header validation, Redis limits, and safe logging apply at the auth boundary.
+
+`EmailOutbox` stores encrypted delivery intent transactionally with user/token changes. A leased PostgreSQL worker in the API delivers real SMTP email, retries outages, and clears payload content after handoff. Redis is used for distributed rate counters; a new queue service is not needed for these modest authentication deliveries. Mailpit is the requested development email testing service. Prisma sessions explicitly use UTC to keep adapter dates, SQL clocks, leases, and expirations consistent across host timezones. See [AUTHENTICATION](AUTHENTICATION.md) for the exact security policy, contracts, retention, deployment constraints, and tests.
 
 Before domain development, approve tenant/user relationships and access rules; scope every business query and mutation by authenticated tenant context; test cross-tenant access. A client-supplied tenant ID alone must never determine access. Row-level security may be defense in depth, but is not assumed or claimed here.
 
+### Organization boundary (Phase 5)
+
+`OrganizationMember` now carries OWNER, EVENT_MANAGER, CHECK_IN_STAFF or PARTICIPANT. An orthogonal USER/PLATFORM_ADMIN account permission supports a limited global directory; it never bypasses tenant membership or grants team administration. Shared permission constants drive service checks and role-based navigation. Profile/team/logo/invitation endpoints validate the current session and verification state, then membership/permission within authorized transactions. A user lock followed by an organization lock serializes membership mutations, invitation consumption and last-active-owner checks. Organization IDs are selectors, never authorization claims.
+
+`Session.activeOrganizationId` is a persistent per-session preference. Switching checks membership; removing a member clears it across their sessions. Other memberships and sessions remain valid. Every explicit organization request still requires its own authorization, so tabs and manipulated IDs cannot borrow access from the preference.
+
+`OrganizationInvitation` binds normalized recipient email, organization, membership role, issuer, hashed token, expiry and response state. Verified recipients may review/respond to their own invitation without existing membership. The issuer must still be an active owner. Seven-day single-use invitations use the existing encrypted transactional SMTP outbox, now supporting recipients without accounts. Reissuing rotates tokens; removing/demoting issuers revokes pending invitations. Sensitive operations write organization-scoped audit records in the same transaction.
+
+`OrganizationLogo` stores bounded sanitized PNG bytes separately from profile queries. Sharp accepts only validated static PNG/JPEG/WebP, enforces byte/pixel/output bounds and removes source metadata. Private image requests require current membership and bypass Next's public optimizer cache. This avoids adding object storage before scale requires it. All lists paginate; documented organization/member/invitation caps bound initial storage and administration operations.
+
+The localized workspace adds organization creation/settings, team roles/removal, actual invitation email/accept/reject, switching and a limited platform directory. Same-origin proxies validate allowlisted methods/paths and response contracts, preserve CSRF checks for JSON and multipart, and never publicly cache tenant data. Protected page access is checked before streaming and again in server components; API authorization remains authoritative. See [ORGANIZATIONS](ORGANIZATIONS.md) for the matrix, endpoints, limits, migration and security tests.
+
 ## Infrastructure and environment
 
-Docker Compose defines PostgreSQL 17 and Redis 7.4, authenticated Redis, persistent named volumes, health checks, loopback host bindings, and non-escalating containers. Root `.env` supplies development credentials. Application startup validates protocols, ports, allowed origins, and production HTTPS origins.
+Docker Compose defines PostgreSQL 17, authenticated Redis 7.4, and local SMTP/Mailpit, with persistent named volumes, health checks, loopback host bindings, and non-escalating containers. Root `.env` supplies development credentials. Application startup validates protocols, ports, allowed origins, and production HTTPS origins.
 
-The foundation does not include production hosting, backups, secret rotation, authorization, queues, websocket events, or deployment automation. These must be designed as their corresponding phases are approved.
+The foundation does not include production hosting, backups, managed secret rotation, business domains beyond organization management, queues, websocket events, or deployment automation. These must be designed as their corresponding phases are approved.

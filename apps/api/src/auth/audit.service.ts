@@ -21,6 +21,7 @@ export class AuditService {
     context: AuditContext,
     metadata?: Prisma.InputJsonObject,
     tx: Prisma.TransactionClient = this.db,
+    organizationId?: string,
   ) {
     return tx.auditLog.create({
       data: {
@@ -31,6 +32,7 @@ export class AuditService {
           ? privateIdentifier(this.config.get('AUTH_SECRET', { infer: true }), context.network)
           : undefined,
         metadata,
+        organizationId,
       },
     });
   }

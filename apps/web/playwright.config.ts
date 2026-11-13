@@ -25,17 +25,23 @@ export default defineConfig({
   webServer:
     process.env.PLAYWRIGHT_PRODUCTION === '1'
       ? undefined
-      : [{
-          command: 'pnpm --filter @ventro/api start',
-          url: 'http://127.0.0.1:4000/api/health',
-          reuseExistingServer: !process.env.CI,
-          timeout: 180000,
-          env: { NEXT_TELEMETRY_DISABLED: '1' },
-        }, {
-          command: 'pnpm dev',
-          url: 'http://127.0.0.1:3000/dev/design-system',
-          reuseExistingServer: !process.env.CI,
-          timeout: 180000,
-          env: { NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1' },
-        }],
+      : [
+          {
+            command: 'pnpm --filter @ventro/api start',
+            url: 'http://127.0.0.1:4000/api/health',
+            reuseExistingServer: !process.env.CI,
+            timeout: 180000,
+            env: {
+              NEXT_TELEMETRY_DISABLED: '1',
+              AUTH_RATE_NAMESPACE: 'ventro-browser-' + process.pid,
+            },
+          },
+          {
+            command: 'pnpm dev',
+            url: 'http://127.0.0.1:3000/dev/design-system',
+            reuseExistingServer: !process.env.CI,
+            timeout: 180000,
+            env: { NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1' },
+          },
+        ],
 });

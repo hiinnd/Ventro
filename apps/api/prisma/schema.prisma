@@ -1,11 +1,13 @@
 generator client {
-  provider = "prisma-client"
-  output = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
+
 datasource db {
   provider = "postgresql"
 }
+
 enum UserStatus {
   ACTIVE
   DISABLED
@@ -13,14 +15,28 @@ enum UserStatus {
 
 enum OrganizationRole {
   OWNER
-  ADMIN
-  MEMBER
+  EVENT_MANAGER
+  CHECK_IN_STAFF
+  PARTICIPANT
+}
+
+enum PlatformRole {
+  USER
+  PLATFORM_ADMIN
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  REVOKED
 }
 
 enum EmailKind {
   VERIFY_EMAIL
   PASSWORD_RESET
   PASSWORD_CHANGED
+  ORGANIZATION_INVITE
 }
 
 enum EmailStatus {
@@ -32,16 +48,17 @@ enum EmailStatus {
 }
 
 model User {
-  id                String     @id @default(uuid()) @db.Uuid
-  email             String     @unique @db.VarChar(254)
-  name              String     @db.VarChar(100)
+  id                String       @id @default(uuid()) @db.Uuid
+  email             String       @unique @db.VarChar(254)
+  name              String       @db.VarChar(100)
   passwordHash      String
-  locale            String     @default("en") @db.VarChar(2)
-  status            UserStatus @default(ACTIVE)
-  emailVerifiedAt   DateTime?   @db.Timestamptz(3)
-  credentialVersion Int        @default(1)
-  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+  locale            String       @default("en") @db.VarChar(2)
+  status            UserStatus   @default(ACTIVE)
+  platformRole      PlatformRole @default(USER)
+  emailVerifiedAt   DateTime?    @db.Timestamptz(3)
+  credentialVersion Int          @default(1)
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(3)
 
   sessions           Session[]
   verificationTokens EmailVerificationToken[]
@@ -49,21 +66,25 @@ model User {
   memberships        OrganizationMember[]
   auditLogs          AuditLog[]
   emailDeliveries    EmailOutbox[]
+  sentInvitations    OrganizationInvitation[]
 }
 
 model Session {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @db.Uuid
-  tokenHash         String   @unique @db.Char(64)
-  credentialVersion Int
-  expiresAt         DateTime @db.Timestamptz(3)
-  absoluteExpiresAt DateTime @db.Timestamptz(3)
-  createdAt         DateTime @default(now()) @db.Timestamptz(3)
-  renewedAt         DateTime @default(now()) @db.Timestamptz(3)
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String        @id @default(uuid()) @db.Uuid
+  userId               String        @db.Uuid
+  tokenHash            String        @unique @db.Char(64)
+  credentialVersion    Int
+  expiresAt            DateTime      @db.Timestamptz(3)
+  absoluteExpiresAt    DateTime      @db.Timestamptz(3)
+  createdAt            DateTime      @default(now()) @db.Timestamptz(3)
+  renewedAt            DateTime      @default(now()) @db.Timestamptz(3)
+  activeOrganizationId String?       @db.Uuid
+  activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
+  @@index([activeOrganizationId])
 }
 
 model EmailVerificationToken {
@@ -93,20 +114,57 @@ model PasswordResetToken {
 }
 
 model Organization {
-  id         String               @id @default(uuid()) @db.Uuid
-  name       String               @db.VarChar(120)
-  slug       String               @unique @db.VarChar(80)
-  archivedAt DateTime?            @db.Timestamptz(3)
-  createdAt  DateTime             @default(now()) @db.Timestamptz(3)
-  updatedAt  DateTime             @updatedAt @db.Timestamptz(3)
-  members    OrganizationMember[]
-  auditLogs  AuditLog[]
+  id             String                   @id @default(uuid()) @db.Uuid
+  name           String                   @db.VarChar(120)
+  slug           String                   @unique @db.VarChar(80)
+  description    String                   @default("") @db.VarChar(1000)
+  website        String                   @default("") @db.VarChar(300)
+  contactEmail   String                   @default("") @db.VarChar(254)
+  timezone       String                   @default("Asia/Amman") @db.VarChar(80)
+  locale         String                   @default("en") @db.VarChar(2)
+  archivedAt     DateTime?                @db.Timestamptz(3)
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                 @updatedAt @db.Timestamptz(3)
+  members        OrganizationMember[]
+  auditLogs      AuditLog[]
+  invitations    OrganizationInvitation[]
+  activeSessions Session[]
+  logo           OrganizationLogo?
+}
+
+model OrganizationLogo {
+  organizationId String       @id @db.Uuid
+  data           Bytes
+  digest         String       @db.Char(64)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(3)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  email          String           @db.VarChar(254)
+  role           OrganizationRole
+  tokenHash      String           @unique @db.Char(64)
+  status         InvitationStatus @default(PENDING)
+  invitedById    String?          @db.Uuid
+  expiresAt      DateTime         @db.Timestamptz(3)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(3)
+  respondedAt    DateTime?        @db.Timestamptz(3)
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User?            @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+  deliveries     EmailOutbox[]
+
+  @@unique([organizationId, email])
+  @@index([email, status, expiresAt])
+  @@index([invitedById])
 }
 
 model OrganizationMember {
   organizationId String           @db.Uuid
   userId         String           @db.Uuid
-  role           OrganizationRole @default(MEMBER)
+  role           OrganizationRole @default(PARTICIPANT)
   createdAt      DateTime         @default(now()) @db.Timestamptz(3)
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -134,20 +192,23 @@ model AuditLog {
 
 // Transactional outbox keeps email intent durable without storing plaintext tokens in a queue.
 model EmailOutbox {
-  id               String      @id @default(uuid()) @db.Uuid
-  userId           String      @db.Uuid
+  id               String                  @id @default(uuid()) @db.Uuid
+  userId           String?                 @db.Uuid
+  invitationId     String?                 @db.Uuid
   kind             EmailKind
   encryptedPayload String
-  tokenHash        String?     @db.Char(64)
-  status           EmailStatus @default(PENDING)
-  attempts         Int         @default(0)
-  nextAttemptAt    DateTime    @default(now()) @db.Timestamptz(3)
-  leaseUntil       DateTime?   @db.Timestamptz(3)
-  expiresAt        DateTime    @db.Timestamptz(3)
-  createdAt        DateTime    @default(now()) @db.Timestamptz(3)
-  sentAt           DateTime?   @db.Timestamptz(3)
-  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash        String?                 @db.Char(64)
+  status           EmailStatus             @default(PENDING)
+  attempts         Int                     @default(0)
+  nextAttemptAt    DateTime                @default(now()) @db.Timestamptz(3)
+  leaseUntil       DateTime?               @db.Timestamptz(3)
+  expiresAt        DateTime                @db.Timestamptz(3)
+  createdAt        DateTime                @default(now()) @db.Timestamptz(3)
+  sentAt           DateTime?               @db.Timestamptz(3)
+  user             User?                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitation       OrganizationInvitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
 
   @@index([status, nextAttemptAt])
   @@index([userId])
+  @@index([invitationId])
 }

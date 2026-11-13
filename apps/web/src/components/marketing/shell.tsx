@@ -83,7 +83,9 @@ export function MarketingShell({
             ))}
           </nav>
           <div className="m-header-actions">
-        <Link href={'/' + locale + '/login'} className="ui-focus m-nav-link m-account-link">{t('Sign in', 'تسجيل الدخول')}</Link>
+            <Link href={'/' + locale + '/login'} className="ui-focus m-nav-link m-account-link">
+              {t('Sign in', 'تسجيل الدخول')}
+            </Link>
             <Link
               className="ui-focus m-language"
               href={languageHref}
@@ -137,7 +139,12 @@ export function MarketingShell({
                       </Link>
                     </DialogClose>
                   ))}
-                  <DialogClose asChild><Link className="ui-focus" href={'/' + locale + '/login'}>{t('Sign in', 'تسجيل الدخول')}<Icon name="next" className="rtl:rotate-180" /></Link></DialogClose>
+                  <DialogClose asChild>
+                    <Link className="ui-focus" href={'/' + locale + '/login'}>
+                      {t('Sign in', 'تسجيل الدخول')}
+                      <Icon name="next" className="rtl:rotate-180" />
+                    </Link>
+                  </DialogClose>
                 </nav>
                 <DialogClose asChild>
                   <Button asChild className="mt-6 w-full">
@@ -179,7 +186,9 @@ export function MarketingShell({
                     {label}
                   </Link>
                 ))}
-                <Link className="ui-focus" href={'/' + locale + '/login'}>{t('Sign in', 'تسجيل الدخول')}</Link>
+                <Link className="ui-focus" href={'/' + locale + '/login'}>
+                  {t('Sign in', 'تسجيل الدخول')}
+                </Link>
               </nav>
             </div>
             <div>

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@ventro/ui';
-import { authRoute, type AuthPage } from '../../lib/auth/routes';
+import { authRoute, safeLoginDestination, type AuthPage } from '../../lib/auth/routes';
 import { text } from '../../lib/marketing/site';
 import { useLocale } from '../locale-provider';
 
@@ -73,10 +73,21 @@ export function AuthForm({
   }, [locale, setLocale]);
   useEffect(() => {
     if (view !== 'reset-password' && view !== 'verify-email') return;
-    const value = new URLSearchParams(window.location.hash.slice(1)).get('token');
-    setToken(value && /^[a-f0-9]{64}$/.test(value) ? value : '');
-    if (window.location.hash)
+    function captureLink() {
+      // StrictMode replays effects after the first pass has removed the fragment.
+      if (!window.location.hash) {
+        setToken((current) => current ?? '');
+        return;
+      }
+      const value = new URLSearchParams(window.location.hash.slice(1)).get('token');
+      setToken(value && /^[a-f0-9]{64}$/.test(value) ? value : '');
+      setSuccess('');
+      setError('');
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    captureLink();
+    window.addEventListener('hashchange', captureLink);
+    return () => window.removeEventListener('hashchange', captureLink);
   }, [view]);
   useEffect(() => {
     if (error || success) notice.current?.focus();
@@ -202,6 +213,7 @@ export function AuthForm({
           <Link
             className="ui-focus text-sm"
             href={authRoute(locale === 'ar' ? 'en' : 'ar', view)}
+            prefetch={view === 'account' ? false : undefined}
             lang={locale === 'ar' ? 'en' : 'ar'}
           >
             {locale === 'ar' ? 'English' : 'العربية'}
@@ -349,7 +361,9 @@ export function AuthForm({
                     await requestAuth('login', { email: email.trim(), password }),
                   );
                   setPassword('');
-                  router.replace(authRoute(locale, 'account'));
+                  router.replace(
+                    safeLoginDestination(new URLSearchParams(location.search).get('next'), locale),
+                  );
                   router.refresh();
                 } else if (view === 'register') {
                   await requestAuth('register', {
@@ -555,6 +569,11 @@ export function AuthForm({
           )}
           {view === 'account' && session && (
             <div className="auth-session">
+              <Button asChild variant="outline" className="mb-5">
+                <Link href={'/' + locale + '/organizations'} prefetch={false}>
+                  {t('Your organizations', 'مؤسساتك')}
+                </Link>
+              </Button>
               <h2>{t('Session security', 'أمان الجلسة')}</h2>
               <p>
                 {t('Signed in until ', 'تستمر الجلسة حتى ')}

@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
+import { OrganizationModule } from './organizations/organization.module';
 import { validateEnvironment, type Environment } from './config/environment';
 
 @Module({
@@ -41,6 +42,7 @@ import { validateEnvironment, type Environment } from './config/environment';
     }),
     HealthModule,
     AuthModule,
+    OrganizationModule,
   ],
 })
 export class AppModule {}

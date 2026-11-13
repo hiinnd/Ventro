@@ -12,6 +12,7 @@ const payloadSchema = z.object({
   to: z.email(),
   locale: z.enum(['en', 'ar']),
   link: z.string().url().optional(),
+  organizationName: z.string().max(120).optional(),
 });
 @Injectable()
 export class EmailService implements OnModuleInit, OnModuleDestroy {
@@ -75,6 +76,27 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     }, 2000);
     this.timer.unref();
   }
+  enqueueInvitation(
+    tx: Prisma.TransactionClient,
+    invitation: { id: string; email: string; tokenHash: string; expiresAt: Date },
+    organization: { name: string; locale: string },
+    link: string,
+  ) {
+    return tx.emailOutbox.create({
+      data: {
+        invitationId: invitation.id,
+        kind: 'ORGANIZATION_INVITE',
+        tokenHash: invitation.tokenHash,
+        expiresAt: invitation.expiresAt,
+        encryptedPayload: encryptPayload(this.config.get('AUTH_SECRET', { infer: true }), {
+          to: invitation.email,
+          locale: organization.locale === 'ar' ? 'ar' : 'en',
+          link,
+          organizationName: organization.name,
+        }),
+      },
+    });
+  }
   async onModuleDestroy() {
     this.stopping = true;
     clearInterval(this.timer);
@@ -105,14 +127,22 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       );
       if (claimed.tokenHash) {
         const token =
-          claimed.kind === 'VERIFY_EMAIL'
-            ? await this.db.emailVerificationToken.findUnique({
-                where: { tokenHash: claimed.tokenHash },
+          claimed.kind === 'ORGANIZATION_INVITE'
+            ? await this.db.organizationInvitation.findFirst({
+                where: {
+                  tokenHash: claimed.tokenHash,
+                  status: 'PENDING',
+                  organization: { archivedAt: null },
+                },
               })
-            : await this.db.passwordResetToken.findUnique({
-                where: { tokenHash: claimed.tokenHash },
-              });
-        if (!token || token.usedAt || token.expiresAt <= new Date()) {
+            : claimed.kind === 'VERIFY_EMAIL'
+              ? await this.db.emailVerificationToken.findUnique({
+                  where: { tokenHash: claimed.tokenHash },
+                })
+              : await this.db.passwordResetToken.findUnique({
+                  where: { tokenHash: claimed.tokenHash },
+                });
+        if (!token || ('usedAt' in token && token.usedAt) || token.expiresAt <= new Date()) {
           await this.db.emailOutbox.update({
             where: { id: claimed.id },
             data: { status: 'CANCELLED', encryptedPayload: '', leaseUntil: null },
@@ -122,29 +152,41 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       }
       const arabic = payload.locale === 'ar';
       const subject =
-        claimed.kind === 'VERIFY_EMAIL'
+        claimed.kind === 'ORGANIZATION_INVITE'
           ? arabic
-            ? 'تأكيد بريدك في VENTRO'
-            : 'Verify your VENTRO email'
-          : claimed.kind === 'PASSWORD_RESET'
+            ? 'دعوة إلى فريق VENTRO'
+            : 'Your VENTRO team invitation'
+          : claimed.kind === 'VERIFY_EMAIL'
             ? arabic
-              ? 'إعادة تعيين كلمة مرور VENTRO'
-              : 'Reset your VENTRO password'
-            : arabic
-              ? 'تم تغيير كلمة مرور VENTRO'
-              : 'Your VENTRO password was changed';
+              ? 'تأكيد بريدك في VENTRO'
+              : 'Verify your VENTRO email'
+            : claimed.kind === 'PASSWORD_RESET'
+              ? arabic
+                ? 'إعادة تعيين كلمة مرور VENTRO'
+                : 'Reset your VENTRO password'
+              : arabic
+                ? 'تم تغيير كلمة مرور VENTRO'
+                : 'Your VENTRO password was changed';
       const instructions =
-        claimed.kind === 'VERIFY_EMAIL'
+        claimed.kind === 'ORGANIZATION_INVITE'
           ? arabic
-            ? 'افتح الرابط ثم اختر تأكيد البريد. تنتهي صلاحيته خلال ٢٤ ساعة.'
-            : 'Open the link and choose Verify email. This link expires within 24 hours.'
-          : claimed.kind === 'PASSWORD_RESET'
+            ? 'دعوة للانضمام إلى ' +
+              payload.organizationName +
+              '. سجّل الدخول بحساب بريد الدعوة المؤكّد، ثم اقبل أو ارفض الدعوة خلال ٧ أيام.'
+            : 'You are invited to ' +
+              payload.organizationName +
+              '. Sign in with the verified invited email, then accept or decline within 7 days.'
+          : claimed.kind === 'VERIFY_EMAIL'
             ? arabic
-              ? 'اختر كلمة مرور جديدة عبر الرابط. تنتهي صلاحيته خلال ٣٠ دقيقة. تجاهل الرسالة إن لم تطلبها.'
-              : 'Choose a new password using this link. It expires within 30 minutes. Ignore this message if you did not request it.'
-            : arabic
-              ? 'تم تغيير كلمة مرور حسابك وإلغاء جلساته السابقة. إن لم تطلب ذلك، استخدم استعادة كلمة المرور فورًا.'
-              : 'Your account password was changed and previous sessions were revoked. If this was not you, request a password reset immediately.';
+              ? 'افتح الرابط ثم اختر تأكيد البريد. تنتهي صلاحيته خلال ٢٤ ساعة.'
+              : 'Open the link and choose Verify email. This link expires within 24 hours.'
+            : claimed.kind === 'PASSWORD_RESET'
+              ? arabic
+                ? 'اختر كلمة مرور جديدة عبر الرابط. تنتهي صلاحيته خلال ٣٠ دقيقة. تجاهل الرسالة إن لم تطلبها.'
+                : 'Choose a new password using this link. It expires within 30 minutes. Ignore this message if you did not request it.'
+              : arabic
+                ? 'تم تغيير كلمة مرور حسابك وإلغاء جلساته السابقة. إن لم تطلب ذلك، استخدم استعادة كلمة المرور فورًا.'
+                : 'Your account password was changed and previous sessions were revoked. If this was not you, request a password reset immediately.';
       await this.transport.sendMail({
         from: this.config.get('SMTP_FROM', { infer: true }),
         to: payload.to,

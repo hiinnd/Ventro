@@ -53,7 +53,9 @@ describe('HTTP infrastructure (dependency doubles; not live database verificatio
     process.env.WEB_ORIGINS = 'http://localhost:3000,http://127.0.0.1:3000';
     process.env.LOG_LEVEL = 'silent';
     process.env.SWAGGER_ENABLED = 'true';
-    const { AppModule } = requireCompiled('../dist/app.module.js') as typeof import('../dist/app.module.js');
+    const { AppModule } = requireCompiled(
+      '../dist/app.module.js',
+    ) as typeof import('../dist/app.module.js');
     const module = await Test.createTestingModule({
       imports: [AppModule],
       controllers: [ProbeController],

@@ -5,7 +5,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return locales.flatMap((locale) =>
     pageKeys.map((page) => ({
       url: site.origin + route(locale, page),
-      lastModified: ['about', 'privacy', 'terms', 'faq'].includes(page) ? '2026-11-13' : '2026-11-12',
+      lastModified: ['about', 'privacy', 'terms', 'faq'].includes(page)
+        ? '2026-11-13'
+        : '2026-11-12',
       changeFrequency: page === 'home' ? ('weekly' as const) : ('monthly' as const),
       priority: page === 'home' ? 1 : page === 'privacy' || page === 'terms' ? 0.3 : 0.7,
       alternates: {
