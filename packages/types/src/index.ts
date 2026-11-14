@@ -264,6 +264,9 @@ export const registrationReceiptSchema = z.object({
   eventSlug: z.string(),
   status: z.enum(['CONFIRMED', 'CANCELLED']),
   createdAt: z.iso.datetime(),
+  ticketAvailable: z.boolean(),
+  emailNotificationQueued: z.boolean(),
+  registrationType: z.enum(['GUEST', 'ACCOUNT']),
 });
 export const registrationListSchema = paginatedSchema(
   z.object({

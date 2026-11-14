@@ -2,6 +2,7 @@ import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/com
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { createTransport, type Transporter } from 'nodemailer';
+import { toDataURL } from 'qrcode';
 import { z } from 'zod';
 import { PrismaService } from '../database/prisma.service';
 import type { EmailKind, Prisma } from '../generated/prisma/client';
@@ -13,7 +14,126 @@ const payloadSchema = z.object({
   locale: z.enum(['en', 'ar']),
   link: z.string().url().optional(),
   organizationName: z.string().max(120).optional(),
+  event: z
+    .object({
+      title: z.string().min(1).max(180),
+      startsAt: z.string().datetime().nullable(),
+      timezone: z.string().min(1).max(80),
+      locationType: z.enum(['VENUE', 'ONLINE']),
+      venue: z.string().max(300),
+      onlineUrl: z.string().max(500),
+      credential: z.uuid(),
+      ticketUrl: z.string().url().optional(),
+    })
+    .optional(),
 });
+
+type EventEmail = NonNullable<z.infer<typeof payloadSchema>['event']>;
+
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]!,
+  );
+
+function eventDate(event: EventEmail, locale: 'en' | 'ar') {
+  if (!event.startsAt) return locale === 'ar' ? 'سيُعلن الموعد لاحقًا' : 'Date to be announced';
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-JO', {
+    dateStyle: 'full',
+    timeStyle: 'short',
+    timeZone: event.timezone,
+  }).format(new Date(event.startsAt));
+}
+
+function ticketEmailHtml(event: EventEmail, locale: 'en' | 'ar') {
+  const arabic = locale === 'ar';
+  const location =
+    event.locationType === 'ONLINE'
+      ? arabic
+        ? 'فعالية عبر الإنترنت'
+        : 'Online event'
+      : event.venue || (arabic ? 'سيُعلن المكان لاحقًا' : 'Venue to be announced');
+  const copy = arabic
+    ? {
+        preheader: 'تم تأكيد تسجيلك وتذكرتك جاهزة.',
+        heading: 'تم تأكيد تسجيلك',
+        introduction: 'تذكرتك جاهزة الآن في حسابك. اعرض رمز QR عند تسجيل الدخول إلى الفعالية.',
+        event: 'الفعالية',
+        date: 'الموعد',
+        location: 'المكان',
+        cta: 'عرض تذكرتي',
+        qr: 'رمز الدخول الخاص بك',
+        safety: 'يحمل رمز QR معرّف تذكرة مبهم فقط. لا تشاركه علنًا.',
+      }
+    : {
+        preheader: 'Your registration is confirmed and your ticket is ready.',
+        heading: 'Your registration is confirmed',
+        introduction:
+          'Your ticket is now available in your account. Show the QR code at event check-in.',
+        event: 'Event',
+        date: 'Date and time',
+        location: 'Location',
+        cta: 'View my ticket',
+        qr: 'Your check-in QR code',
+        safety: 'This QR code contains only an opaque ticket credential. Do not share it publicly.',
+      };
+  const direction = arabic ? 'rtl' : 'ltr';
+  return `<!doctype html>
+<html lang="${locale}" dir="${direction}">
+  <body style="margin:0;background:#f6f7fb;color:#101b35;font-family:Arial,sans-serif;">
+    <span style="display:none!important;visibility:hidden;opacity:0;overflow:hidden;height:0;width:0;">${escapeHtml(copy.preheader)}</span>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 12px;background:#f6f7fb;"><tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 12px 30px rgba(16,27,53,.10);">
+        <tr><td style="padding:28px 32px;background:#101b35;color:#f6f7fb;"><strong style="font-size:22px;letter-spacing:1px;">VENTRO</strong><br><span style="font-size:12px;color:#9b8cff;">Every Event. Beyond the Moment.</span></td></tr>
+        <tr><td style="padding:32px;">
+          <h1 style="margin:0 0 12px;font-size:28px;line-height:1.3;color:#101b35;">${escapeHtml(copy.heading)}</h1>
+          <p style="margin:0 0 24px;line-height:1.7;color:#252b42;">${escapeHtml(copy.introduction)}</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e3e5ee;border-radius:14px;background:#f6f7fb;"><tr><td style="padding:20px;">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#70778d;">${escapeHtml(copy.event)}</p><p style="margin:0 0 18px;font-size:19px;font-weight:bold;color:#101b35;">${escapeHtml(event.title)}</p>
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#70778d;">${escapeHtml(copy.date)}</p><p style="margin:0 0 18px;line-height:1.5;color:#252b42;">${escapeHtml(eventDate(event, locale))}</p>
+            <p style="margin:0 0 6px;font-size:12px;font-weight:bold;color:#70778d;">${escapeHtml(copy.location)}</p><p style="margin:0;color:#252b42;">${escapeHtml(location)}</p>
+          </td></tr></table>
+          <div style="padding:28px 0 18px;text-align:center;"><p style="margin:0 0 10px;font-weight:bold;color:#101b35;">${escapeHtml(copy.qr)}</p><img src="cid:ventro-ticket-qr" width="220" height="220" alt="${escapeHtml(copy.qr)}" style="display:block;margin:0 auto;border:12px solid #ffffff;border-radius:12px;background:#ffffff;"></div>
+          <p style="margin:0 0 24px;text-align:center;font-size:13px;line-height:1.6;color:#70778d;">${escapeHtml(copy.safety)}</p>
+          ${event.ticketUrl ? `<div style="text-align:center;"><a href="${escapeHtml(event.ticketUrl)}" style="display:inline-block;padding:14px 22px;border-radius:10px;background:#5ce1c6;color:#101b35;font-weight:bold;text-decoration:none;">${escapeHtml(copy.cta)}</a></div>` : ''}
+        </td></tr>
+      </table>
+    </td></tr></table>
+  </body>
+</html>`;
+}
+
+function ticketEmailText(
+  event: EventEmail,
+  locale: 'en' | 'ar',
+  subject: string,
+  instructions: string,
+) {
+  const arabic = locale === 'ar';
+  const location =
+    event.locationType === 'ONLINE'
+      ? arabic
+        ? 'فعالية عبر الإنترنت'
+        : 'Online event'
+      : event.venue || (arabic ? 'سيُعلن المكان لاحقًا' : 'Venue to be announced');
+  return [
+    'VENTRO — Every Event. Beyond the Moment.',
+    '',
+    subject,
+    instructions,
+    '',
+    (arabic ? 'الفعالية: ' : 'Event: ') + event.title,
+    (arabic ? 'الموعد: ' : 'Date and time: ') + eventDate(event, locale),
+    (arabic ? 'المكان: ' : 'Location: ') + location,
+    '',
+    ...(event.ticketUrl ? [event.ticketUrl, ''] : []),
+    '',
+    arabic
+      ? 'رمز QR خاص بتذكرتك. لا تشاركه علنًا.'
+      : 'Your QR code belongs to your ticket. Do not share it publicly.',
+  ].join('\n');
+}
 @Injectable()
 export class EmailService implements OnModuleInit, OnModuleDestroy {
   private readonly transport: Transporter;
@@ -97,6 +217,57 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       },
     });
   }
+  async enqueueRegistrationConfirmation(
+    tx: Prisma.TransactionClient,
+    recipient: { id: string; email: string; locale: string } | { email: string; locale: string },
+    event: {
+      title: string;
+      startsAt: Date | null;
+      timezone: string;
+      locationType: 'VENUE' | 'ONLINE';
+      venue: string;
+      onlineUrl: string;
+    },
+    credential: string,
+  ) {
+    const accountRecipient = 'id' in recipient;
+    if (accountRecipient) {
+      const preference = await tx.notificationPreference.upsert({
+        where: { userId: recipient.id },
+        create: { userId: recipient.id },
+        update: {},
+        select: { registrationEmail: true },
+      });
+      if (!preference.registrationEmail) return null;
+    }
+    const locale = recipient.locale === 'ar' ? 'ar' : 'en';
+    const ticketUrl = accountRecipient
+      ? this.config.get('AUTH_APP_URL', { infer: true }) + '/' + locale + '/tickets'
+      : undefined;
+    return tx.emailOutbox.create({
+      data: {
+        ...(accountRecipient ? { userId: recipient.id } : {}),
+        kind: 'EVENT_NOTIFICATION',
+        // The email contains no bearer credential. The outbox expiry bounds retry retention only.
+        expiresAt: new Date(Date.now() + 7 * 86400000),
+        encryptedPayload: encryptPayload(this.config.get('AUTH_SECRET', { infer: true }), {
+          to: recipient.email,
+          locale,
+          link: ticketUrl,
+          event: {
+            title: event.title,
+            startsAt: event.startsAt?.toISOString() ?? null,
+            timezone: event.timezone,
+            locationType: event.locationType,
+            venue: event.venue,
+            onlineUrl: event.onlineUrl,
+            credential,
+            ticketUrl,
+          },
+        }),
+      },
+    });
+  }
   async onModuleDestroy() {
     this.stopping = true;
     clearInterval(this.timer);
@@ -164,9 +335,13 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
               ? arabic
                 ? 'إعادة تعيين كلمة مرور VENTRO'
                 : 'Reset your VENTRO password'
-              : arabic
-                ? 'تم تغيير كلمة مرور VENTRO'
-                : 'Your VENTRO password was changed';
+              : claimed.kind === 'EVENT_NOTIFICATION'
+                ? arabic
+                  ? 'تم تأكيد تسجيلك وتذكرتك جاهزة'
+                  : 'Your VENTRO registration is confirmed'
+                : arabic
+                  ? 'تم تغيير كلمة مرور VENTRO'
+                  : 'Your VENTRO password was changed';
       const instructions =
         claimed.kind === 'ORGANIZATION_INVITE'
           ? arabic
@@ -184,24 +359,53 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
               ? arabic
                 ? 'اختر كلمة مرور جديدة عبر الرابط. تنتهي صلاحيته خلال ٣٠ دقيقة. تجاهل الرسالة إن لم تطلبها.'
                 : 'Choose a new password using this link. It expires within 30 minutes. Ignore this message if you did not request it.'
-              : arabic
-                ? 'تم تغيير كلمة مرور حسابك وإلغاء جلساته السابقة. إن لم تطلب ذلك، استخدم استعادة كلمة المرور فورًا.'
-                : 'Your account password was changed and previous sessions were revoked. If this was not you, request a password reset immediately.';
+              : claimed.kind === 'EVENT_NOTIFICATION'
+                ? arabic
+                  ? 'تم تأكيد تسجيلك. افتح تذاكري لعرض التذكرة ورمز QR الخاص بالدخول.'
+                  : 'Your registration is confirmed. Open My tickets to view your ticket and check-in QR code.'
+                : arabic
+                  ? 'تم تغيير كلمة مرور حسابك وإلغاء جلساته السابقة. إن لم تطلب ذلك، استخدم استعادة كلمة المرور فورًا.'
+                  : 'Your account password was changed and previous sessions were revoked. If this was not you, request a password reset immediately.';
+      const event = claimed.kind === 'EVENT_NOTIFICATION' ? payload.event : undefined;
+      if (claimed.kind === 'EVENT_NOTIFICATION' && !event)
+        throw new Error('Event notification payload is invalid');
+      const qr = event
+        ? await toDataURL('ventro:ticket:' + event.credential, {
+            width: 440,
+            margin: 1,
+            errorCorrectionLevel: 'M',
+          })
+        : undefined;
       await this.transport.sendMail({
         from: this.config.get('SMTP_FROM', { infer: true }),
         to: payload.to,
         subject,
-        text: [
-          'VENTRO — Every Event. Beyond the Moment.',
-          '',
-          subject,
-          instructions,
-          ...(payload.link ? ['', payload.link] : []),
-          '',
-          arabic
-            ? 'لا تشارك روابط التحقق أو الاستعادة مع الآخرين.'
-            : 'Never share verification or reset links.',
-        ].join('\n'),
+        text: event
+          ? ticketEmailText(event, payload.locale, subject, instructions)
+          : [
+              'VENTRO — Every Event. Beyond the Moment.',
+              '',
+              subject,
+              instructions,
+              ...(payload.link ? ['', payload.link] : []),
+              '',
+              arabic
+                ? 'لا تشارك روابط التحقق أو الاستعادة مع الآخرين.'
+                : 'Never share verification or reset links.',
+            ].join('\n'),
+        ...(event && qr
+          ? {
+              html: ticketEmailHtml(event, payload.locale),
+              attachments: [
+                {
+                  filename: 'ventro-ticket-qr.png',
+                  content: qr.slice(qr.indexOf(',') + 1),
+                  encoding: 'base64' as const,
+                  cid: 'ventro-ticket-qr',
+                },
+              ],
+            }
+          : {}),
         messageId: '<' + claimed.id + '@ventro-outbox>',
         headers: { 'X-Auto-Response-Suppress': 'All' },
       });

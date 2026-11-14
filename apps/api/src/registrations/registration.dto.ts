@@ -3,11 +3,13 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsEmail,
   IsEnum,
   IsIn,
   IsObject,
   IsOptional,
   IsString,
+  ValidateIf,
   Matches,
   MaxLength,
   ValidateNested,
@@ -38,6 +40,16 @@ export class SaveFormDto {
 }
 export class SubmitRegistrationDto {
   @IsObject() answers!: Record<string, unknown>;
+  @IsOptional() @IsIn(['GUEST', 'ACCOUNT']) registrationType?: 'GUEST' | 'ACCOUNT';
+  @ValidateIf((value: SubmitRegistrationDto) => value.registrationType === 'GUEST')
+  @IsString()
+  @MaxLength(100)
+  guestName?: string;
+  @ValidateIf((value: SubmitRegistrationDto) => value.registrationType === 'GUEST')
+  @IsEmail()
+  @MaxLength(254)
+  guestEmail?: string;
+  @IsOptional() @IsIn(['en', 'ar']) locale?: 'en' | 'ar';
 }
 export class RegistrationListQuery extends PageDto {
   @IsOptional() @IsString() @MaxLength(100) q?: string;

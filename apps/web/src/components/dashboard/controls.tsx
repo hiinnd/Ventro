@@ -82,13 +82,14 @@ export function OrganizationSwitcher({
         className="dash-org-trigger"
         variant="ghost"
         onClick={() => setOpen(true)}
-        aria-label={organization.name + ' — ' + t('Switch organization', 'تبديل المؤسسة')}
+        title={t('Switch organization', 'تبديل المؤسسة')}
       >
         <OrganizationAvatar organization={organization} />
-        <span className="min-w-0 text-start" aria-hidden>
+        <span className="min-w-0 text-start">
           <span className="dash-org-trigger-label">{t('ORGANIZATION', 'المؤسسة')}</span>
           <span className="block truncate font-semibold">{organization.name}</span>
         </span>
+        <span className="sr-only">{t('Switch organization', 'تبديل المؤسسة')}</span>
         <Icon name="down" />
       </Button>
       <Modal
@@ -238,7 +239,7 @@ export function DashboardSearch({
       <Button
         variant="outline"
         className="dash-search-trigger"
-        aria-label={t('Search workspace…', 'ابحث في مساحة العمل…')}
+        title={t('Search workspace…', 'ابحث في مساحة العمل…')}
         onClick={() => setOpen(true)}
       >
         <DashboardIcon name="search" className="size-4" />

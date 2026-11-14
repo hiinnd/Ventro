@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -14,6 +15,8 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import {
   AuthRate,
   AuthRateGuard,
+  AuthCookieService,
+  AuthService,
   SessionGuard,
   VerifiedEmailGuard,
   authenticated,
@@ -54,11 +57,14 @@ export class RegistrationController {
   }
 }
 @ApiTags('Registrations')
-@ApiCookieAuth('ventro-session')
 @Controller()
-@UseGuards(OrganizationOriginGuard, AuthRateGuard, SessionGuard, VerifiedEmailGuard)
+@UseGuards(OrganizationOriginGuard, AuthRateGuard)
 export class PublicRegistrationController {
-  constructor(private readonly registrations: RegistrationsService) {}
+  constructor(
+    private readonly registrations: RegistrationsService,
+    private readonly auth: AuthService,
+    private readonly cookies: AuthCookieService,
+  ) {}
   @Get('events/:slug/registration-form') form(@Param('slug') slug: string) {
     return this.registrations.publicForm(slug);
   }
@@ -67,12 +73,28 @@ export class PublicRegistrationController {
     @Param('slug') slug: string,
     @Body() body: SubmitRegistrationDto,
   ) {
-    return this.registrations.submit(authenticated(r), slug, body, auditContext(r));
+    return this.submitRegistration(r, slug, body);
   }
-  @Get('registrations/me') mine(@Req() r: AuthRequest, @Query() q: RegistrationListQuery) {
+  private async submitRegistration(r: AuthRequest, slug: string, body: SubmitRegistrationDto) {
+    let account = null;
+    try {
+      account = await this.auth.authenticate(this.cookies.read(r));
+    } catch {
+      // A guest flow deliberately works without a session; it never trusts a client account ID.
+    }
+    if (body.registrationType !== 'GUEST' && (!account || !account.user.emailVerifiedAt))
+      throw new ForbiddenException('Sign in with a verified VENTRO account to register this way');
+    return this.registrations.submit(account, slug, body, auditContext(r));
+  }
+  @Get('registrations/me') @UseGuards(SessionGuard, VerifiedEmailGuard) mine(
+    @Req() r: AuthRequest,
+    @Query() q: RegistrationListQuery,
+  ) {
     return this.registrations.mine(authenticated(r), q.page);
   }
-  @Get('organizations/:organizationId/events/:eventId/registrations') list(
+  @Get('organizations/:organizationId/events/:eventId/registrations')
+  @UseGuards(SessionGuard, VerifiedEmailGuard)
+  list(
     @Req() r: AuthRequest,
     @Param('organizationId', uuid) org: string,
     @Param('eventId', uuid) eventId: string,

@@ -55,7 +55,9 @@ export function DashboardOverviewPanel({
     dashboardOverviewSchema,
   );
   const canManage = hasOrganizationPermission(organization.role, 'team:write');
-  const format = new Intl.NumberFormat(locale);
+  // Pin numeral shaping rather than relying on the browser's generic `ar`
+  // locale fallback, which can render Latin digits on some installations.
+  const format = new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US');
   const metrics = overview.data
     ? [
         {

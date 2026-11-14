@@ -148,7 +148,7 @@ export class CertificatesService implements OnModuleInit, OnModuleDestroy {
     });
     const registration = await tx.registration.findUnique({
       where: { id: registrationId },
-      include: { user: { select: { name: true } }, ticket: { select: { id: true } } },
+      include: { ticket: { select: { id: true } } },
     });
     if (
       !template ||
@@ -213,7 +213,7 @@ export class CertificatesService implements OnModuleInit, OnModuleDestroy {
             eventId,
             registrationId: registration.id,
             templateId,
-            recipientName: eligibility.registration.user.name,
+            recipientName: eligibility.registration.attendeeName,
             eventTitle: eligibility.template.event.title,
             learningHours: eligibility.template.learningHours,
           },

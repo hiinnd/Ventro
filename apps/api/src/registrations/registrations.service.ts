@@ -7,6 +7,8 @@ import {
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { AuthContext } from '../auth/auth.service';
 import { AuditService, type AuditContext } from '../auth/audit.service';
+import { normalizeEmail } from '../auth/crypto';
+import { EmailService } from '../auth/email.service';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { OrganizationService } from '../organizations/organization.service';
@@ -38,6 +40,7 @@ export class RegistrationsService {
     private readonly db: PrismaService,
     private readonly orgs: OrganizationService,
     private readonly audit: AuditService,
+    private readonly emails: EmailService,
   ) {}
   private checkSchema(input: SaveFormDto) {
     const keys = new Set<string>();
@@ -186,11 +189,23 @@ export class RegistrationsService {
     return values;
   }
   async submit(
-    auth: AuthContext,
+    auth: AuthContext | null,
     slug: string,
     input: SubmitRegistrationDto,
     context: AuditContext,
   ) {
+    const accountRegistration = input.registrationType !== 'GUEST';
+    if (accountRegistration && !auth) throw formError('Sign in to register with a VENTRO account');
+    const attendeeEmail = accountRegistration
+      ? auth!.user.email
+      : normalizeEmail(input.guestEmail ?? '');
+    const attendeeName = accountRegistration ? auth!.user.name : (input.guestName ?? '').trim();
+    if (!attendeeEmail || !attendeeName) throw formError('Guest name and email are required');
+    const locale = accountRegistration
+      ? auth!.user.locale === 'ar'
+        ? 'ar'
+        : 'en'
+      : (input.locale ?? 'en');
     return this.db.$transaction(async (tx) => {
       const event = await tx.event.findFirst({
         where: { slug, status: 'PUBLISHED', visibility: 'PUBLIC' },
@@ -203,7 +218,7 @@ export class RegistrationsService {
       if (event.registrationDeadline && event.registrationDeadline <= now)
         throw formError('Registration has closed');
       const existing = await tx.registration.findUnique({
-        where: { eventId_userId: { eventId: event.id, userId: auth.user.id } },
+        where: { eventId_attendeeEmail: { eventId: event.id, attendeeEmail } },
       });
       if (existing) throw new ConflictException('You are already registered for this event');
       if (event.capacity !== null) {
@@ -214,7 +229,13 @@ export class RegistrationsService {
       }
       const answers = this.validate(event.registrationForm.fields, input.answers);
       const registration = await tx.registration.create({
-        data: { eventId: event.id, userId: auth.user.id, answers: { create: answers } },
+        data: {
+          eventId: event.id,
+          attendeeEmail,
+          attendeeName,
+          ...(accountRegistration ? { userId: auth!.user.id } : {}),
+          answers: { create: answers },
+        },
       });
       const ticketSecret = randomBytes(32).toString('base64url');
       const ticketCredential = randomUUID();
@@ -225,9 +246,41 @@ export class RegistrationsService {
           tokenHash: createHash('sha256').update(ticketSecret).digest('hex'),
         },
       });
+      const emailDelivery = await this.emails.enqueueRegistrationConfirmation(
+        tx,
+        accountRegistration ? auth!.user : { email: attendeeEmail, locale },
+        {
+          title: event.title,
+          startsAt: event.startsAt,
+          timezone: event.timezone,
+          locationType: event.locationType,
+          venue: event.venue,
+          onlineUrl: event.onlineUrl,
+        },
+        ticketCredential,
+      );
+      if (accountRegistration) {
+        const arabic = locale === 'ar';
+        await tx.notification.upsert({
+          where: { dedupeKey: 'registration-confirmed:' + registration.id },
+          create: {
+            userId: auth!.user.id,
+            organizationId: event.organizationId,
+            eventId: event.id,
+            kind: 'REGISTRATION_CONFIRMED',
+            title: arabic ? 'تم تأكيد تسجيلك' : 'Registration confirmed',
+            body: arabic
+              ? 'تذكرتك ورمز QR الخاص بها جاهزان في حسابك.'
+              : 'Your ticket and check-in QR code are ready in your account.',
+            actionUrl: '/' + (arabic ? 'ar' : 'en') + '/tickets',
+            dedupeKey: 'registration-confirmed:' + registration.id,
+          },
+          update: {},
+        });
+      }
       await this.audit.write(
-        'EVENT_REGISTERED',
-        auth.user.id,
+        accountRegistration ? 'EVENT_REGISTERED' : 'GUEST_EVENT_REGISTERED',
+        auth?.user.id ?? null,
         context,
         { eventId: event.id, registrationId: registration.id },
         tx,
@@ -238,7 +291,9 @@ export class RegistrationsService {
         eventSlug: slug,
         status: registration.status,
         createdAt: registration.createdAt.toISOString(),
-        ticket: { credential: ticketCredential, secret: ticketSecret },
+        ticketAvailable: true,
+        emailNotificationQueued: Boolean(emailDelivery),
+        registrationType: accountRegistration ? 'ACCOUNT' : 'GUEST',
       };
     });
   }
@@ -275,12 +330,10 @@ export class RegistrationsService {
         ...(q.status ? { status: q.status as 'CONFIRMED' | 'CANCELLED' } : {}),
         ...(q.q
           ? {
-              user: {
-                OR: [
-                  { name: { contains: q.q, mode: 'insensitive' } },
-                  { email: { contains: q.q, mode: 'insensitive' } },
-                ],
-              },
+              OR: [
+                { attendeeName: { contains: q.q, mode: 'insensitive' } },
+                { attendeeEmail: { contains: q.q, mode: 'insensitive' } },
+              ],
             }
           : {}),
       };
@@ -288,7 +341,6 @@ export class RegistrationsService {
         tx.registration.findMany({
           where,
           include: {
-            user: { select: { name: true, email: true } },
             answers: { include: { formField: { select: { key: true, label: true } } } },
           },
           orderBy: { createdAt: 'desc' },
@@ -302,8 +354,8 @@ export class RegistrationsService {
           id: r.id,
           status: r.status,
           createdAt: r.createdAt.toISOString(),
-          name: r.user.name,
-          email: r.user.email,
+          name: r.attendeeName,
+          email: r.attendeeEmail,
           answers: r.answers.map((a) => ({
             key: a.formField.key,
             label: a.formField.label,

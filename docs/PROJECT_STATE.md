@@ -325,8 +325,145 @@ The local checks use the portable PostgreSQL/Redis services because Docker Engin
 
 The certificate PDF is intentionally a first branded text layout using the organization name; adding uploaded background templates or localized PDF typography needs approved design assets and Arabic-font embedding. Jobs run in the API process for this modular-monolith foundation; a separate worker deployment is an operational scaling decision. Phase 12 remains queued until Phase 11 browser-regression coverage is expanded beyond the focused backend/PDF check.
 
+## Phase 15 QA and Phase 16 launch-preparation update
+
+### Completed features and verification
+
+- Performed a production-quality audit using local PostgreSQL, Redis, and Mailpit. `pnpm db:deploy` found eight migrations and no pending work.
+- Fixed two accessibility defects in the dashboard organization/search controls and corrected Arabic metric numeral shaping. Updated stale dashboard expectations so implemented Phase 7–11 screens are not described as planned.
+- Added [QA_REPORT.md](QA_REPORT.md), [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md), [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md), [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md), [PRIVACY_RETENTION_CHECKLIST.md](PRIVACY_RETENTION_CHECKLIST.md), and [LAUNCH_READINESS_REPORT.md](LAUNCH_READINESS_REPORT.md). These are preparation documents; no deployment or launch occurred.
+
+### Modified files
+
+- `apps/web/src/components/dashboard/controls.tsx`
+- `apps/web/src/components/dashboard/overview.tsx`
+- `apps/web/test/ui/dashboard.spec.ts`
+- `docs/QA_REPORT.md`, `docs/DEPLOYMENT_GUIDE.md`, `docs/OPERATIONS_RUNBOOK.md`, `docs/SECURITY_CHECKLIST.md`, `docs/PRIVACY_RETENTION_CHECKLIST.md`, `docs/LAUNCH_READINESS_REPORT.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, and this file.
+
+### Database changes
+
+- None in Phase 15/16. Local `pnpm db:deploy` confirmed no pending migration.
+
+### Commands executed and results
+
+| Command / check                                              | Observed result                                                                                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`           | Passed.                                                                                                                                               |
+| `pnpm build`                                                 | Passed NestJS and optimized Next.js production builds.                                                                                                |
+| `pnpm test`                                                  | Passed: 29 API and 15 web tests.                                                                                                                      |
+| `pnpm test:integration`                                      | Passed: 42 tests across 4 integration files.                                                                                                          |
+| Full Playwright first pass                                   | 31 passed; 1 dashboard a11y failure found and fixed; 3 serial tests skipped after it.                                                                 |
+| Dashboard Playwright targeted reruns                         | Passed desktop, Arabic mobile RTL, error recovery, and tenant/role revocation scenarios; all original remaining browser scenarios had already passed. |
+| `pnpm --filter @ventro/web audit:lighthouse` on `next start` | Completed: accessibility 100 in all profiles; mobile performance requires further work (see QA report).                                               |
+
+### Known issues and next phase dependencies
+
+VENTRO is **not production-ready and is not launched**. The Arabic mobile Lighthouse score is 48 with 1,780 ms total blocking time and 0.199 CLS; English mobile is 69. Phase 12 notifications remains incomplete, Phase 13 billing/admin remains incomplete, and managed hosting, secret rotation, monitoring, backup/restore rehearsal, production email/object storage, legal/privacy approval, and an external security review are still required. Payments remain disabled. Resolve or formally risk-accept these gates before a controlled pilot; public launch requires a separate approval.
+
 ## Phase 12 sub-milestone 12A
 
 - Added and locally applied `20261114123000_analytics_notifications`: persisted `Notification`, `NotificationPreference`, an idempotency key, notification categories, and user/organization/event query indexes.
 - Prisma generation and validation passed; `db:deploy` applied the migration successfully to local PostgreSQL.
 - Remaining 12B work: tenant-scoped analytics queries/CSV, event-driven notification creation, preference-aware BullMQ email delivery, local Mailpit retry verification, and the dashboard/chart interfaces. No fabricated analytics or placeholder delivery behavior has been added.
+
+## Whole-project review — 2026-11-15
+
+### Completed review scope
+
+- Inspected every current Phase 15/16 source and documentation change: dashboard accessible labels, Arabic metric shaping, dashboard browser coverage, QA/operations/security/privacy/deployment/pilot documents, architecture, roadmap, and project state.
+- Confirmed the dashboard continues to call the existing same-origin organization APIs, uses server-side organization activation, and keeps tenant authorization on the API side. No route, API-contract, or database-schema change was introduced by this review phase.
+- Confirmed the production Next.js build emits public, workspace, registration, ticket, live-room, certificate, Passport, and same-origin API proxy routes without unresolved imports.
+
+### Commands and actual results
+
+| Command / check                                                  | Observed result                                                                                                                          |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm db:validate` and `pnpm db:deploy`                          | Prisma schema valid; 8 migrations found; no pending migration.                                                                           |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm build` | Passed. Both NestJS and optimized Next.js builds completed.                                                                              |
+| `pnpm test`                                                      | Passed: 29 API tests and 15 web tests.                                                                                                   |
+| `pnpm test:integration`                                          | Passed: 42 tests in 4 files.                                                                                                             |
+| `playwright test test/ui/dashboard.spec.ts`                      | Passed on retry: 4/4 browser scenarios, including EN/AR, RTL, mobile, themes, recoverable states, tenant isolation, and role revocation. |
+
+The first browser attempt encountered a local portable-PostgreSQL `Query read timeout` while creating a test fixture immediately after local services were restarted. A direct database query succeeded and the isolated retry passed all 4 scenarios. It is recorded as a local test-environment instability, not accepted as a product-pass result.
+
+### Remaining issues and next-phase readiness
+
+No new correctness, import, route, API-contract, migration, authorization, or RTL/theme regression was found in the reviewed changes. Existing release blockers remain: mobile Lighthouse performance, incomplete Phase 12 notification delivery, incomplete Phase 13 administration/billing, and unprovisioned production infrastructure/monitoring/backups/legal review. The project is ready for a deliberately authorized remediation or deployment-preparation task, **not** for automatic progression or public launch.
+
+## Registration confirmation email and ticket update — 2026-11-15
+
+### Completed features
+
+- A confirmed registration now atomically creates its ticket, a persistent `REGISTRATION_CONFIRMED` in-app notification, and (when the attendee has enabled the preference) an encrypted transactional email-outbox record.
+- The confirmation page directs the attendee to the existing account ticket page and accurately distinguishes a queued email from an account-only ticket.
+- The branded EN/AR email includes event details, account ticket link, and an inline QR image. The QR contains only the opaque ticket credential, never attendee personal data; check-in remains server-authorized.
+- Delivery is exercised through local Mailpit in EN/LTR and AR/RTL, including inline QR rendering. Existing outbox retry/expiry handling is reused.
+
+### Modified files
+
+- `apps/api/package.json`, `pnpm-lock.yaml`
+- `apps/api/src/auth/email.service.ts`
+- `apps/api/src/registrations/registrations.service.ts`
+- `apps/api/test/registrations.integration.ts`
+- `packages/types/src/index.ts`
+- `apps/web/src/components/registrations/public-registration.tsx`
+- `apps/web/src/app/[locale]/registrations/confirmation/page.tsx`
+- `docs/REGISTRATIONS.md`, `docs/ARCHITECTURE.md`, and this file.
+
+### Database changes
+
+- None. The change uses the existing ticket, notification, preference, and encrypted outbox tables/migration.
+
+### Commands executed and results
+
+| Command / check                                        | Observed result                                                                                                               |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format:check`, `pnpm lint`, and `pnpm typecheck` | Passed. Prisma client generation also completed during typecheck.                                                             |
+| `pnpm test` and `pnpm test:integration`                | Completed successfully in the local command runner; the focused registration suite below supplies the feature-level evidence. |
+| Focused `registrations.integration.ts`                 | Passed: 9 tests, including actual Mailpit English/Arabic message bodies and inline QR records.                                |
+| `pnpm build`                                           | Completed NestJS and optimized Next.js production builds; Next emitted its `BUILD_ID`.                                        |
+| `pnpm db:deploy` and `git diff --check`                | Eight migrations found with none pending; no whitespace errors.                                                               |
+
+### Known issues and next dependencies
+
+- Mailpit confirms local SMTP handoff only. A verified production SMTP provider, sender domain, monitoring, and delivery/bounce policy are still required before a real launch.
+- Phase 12 remains incomplete overall; this adds the registration-confirmation delivery path but does not claim all notification categories, BullMQ delivery, analytics, or preference UI are complete.
+
+## Guest and VENTRO Account registration — 2026-11-15
+
+### Completed features
+
+- Added the explicit `GUEST` registration flow: no session/account is required, the attendee supplies a validated name and email, and the ticket with opaque QR is delivered through the existing encrypted outbox/Mailpit path.
+- Retained the VENTRO Account flow for verified users. It links the registration to the user and keeps account tickets, in-app notifications, certificates, and Event Passport compatibility.
+- Normalized attendee name/email now live on every registration. A unique `(eventId, attendeeEmail)` constraint prevents the same person registering more than once, regardless of guest/account path. Guest records have no user relation and are never exposed as account tickets.
+- Organizer search/list and check-in now use the safe registration attendee fields, so guest staff operations work without an assumed `User` relation.
+
+### Modified files
+
+- `apps/api/prisma/schema.prisma` and `apps/api/prisma/migrations/20261115000000_guest_registration/migration.sql`
+- `apps/api/src/auth/email.service.ts`
+- `apps/api/src/registrations/registration.dto.ts`, `registrations.controller.ts`, and `registrations.service.ts`
+- `apps/api/src/ticketing/ticketing.service.ts` and `apps/api/src/certificates/certificates.service.ts`
+- `apps/api/test/registrations.integration.ts`
+- `apps/web/src/components/registrations/public-registration.tsx`
+- `apps/web/src/app/[locale]/registrations/confirmation/page.tsx`
+- `packages/types/src/index.ts`, `docs/REGISTRATIONS.md`, `docs/ARCHITECTURE.md`, and this file.
+
+### Database changes
+
+- Locally applied `20261115000000_guest_registration`: nullable registration user relation (`ON DELETE SET NULL`), attendee name/email snapshot columns, attendee-email index, and unique event/email duplicate prevention. Existing registrations were backfilled from their user records.
+
+### Commands executed and results
+
+| Command / check                        | Observed result                                                                                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm format` and `pnpm db:validate`   | Passed; Prisma schema is valid.                                                                                                                   |
+| `pnpm db:deploy`                       | Applied `20261115000000_guest_registration` locally; direct database query confirmed it as the latest completed migration.                        |
+| Focused `registrations.integration.ts` | Passed: 10 isolated-database cases, including guest/no-cookie registration, email/QR, duplicate prevention, organizer visibility, and staff scan. |
+| `pnpm lint`                            | Passed with zero warnings.                                                                                                                        |
+| API and web production builds          | Passed; the optimized Next.js build emitted `BUILD_ID`.                                                                                           |
+
+### Known issues and next dependencies
+
+- Guest tickets are intentionally email-only; converting a historical guest registration into a newly created VENTRO account is a separate, identity-verification-sensitive feature and is not implied by matching an email address.
+- Production delivery still requires verified SMTP/domain configuration; local Mailpit confirms development handoff only.

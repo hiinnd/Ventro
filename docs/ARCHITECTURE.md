@@ -80,7 +80,7 @@ Phase 4 adds the authentication database foundation and versioned auth module. U
 
 Next.js uses an allowlisted same-origin authentication proxy. Browser forms never read the HTTP-only cookie. Protected account pages are checked before streaming and again server-side; the NestJS guards remain the authority for profile/session data. Passwords use Argon2id, tokens use random 256-bit values stored as hashes, and credential-version/user-row locking protects reset/login/renew races. JSON/origin/custom-header validation, Redis limits, and safe logging apply at the auth boundary.
 
-`EmailOutbox` stores encrypted delivery intent transactionally with user/token changes. A leased PostgreSQL worker in the API delivers real SMTP email, retries outages, and clears payload content after handoff. Redis is used for distributed rate counters; a new queue service is not needed for these modest authentication deliveries. Mailpit is the requested development email testing service. Prisma sessions explicitly use UTC to keep adapter dates, SQL clocks, leases, and expirations consistent across host timezones. See [AUTHENTICATION](AUTHENTICATION.md) for the exact security policy, contracts, retention, deployment constraints, and tests.
+`EmailOutbox` stores encrypted delivery intent transactionally with user/token changes. A leased PostgreSQL worker in the API delivers real SMTP email, retries outages, and clears payload content after handoff. A confirmed event registration creates its ticket in the same transaction. A verified VENTRO account gains a preference-aware outbox entry and persistent in-app notification; a guest has no user row or cookie but receives a durable outbox email directly. Both localized emails embed an opaque-ticket QR image and never encode participant data in that image. Redis is used for distributed rate counters; a new queue service is not needed for these modest authentication and registration deliveries. Mailpit is the requested development email testing service. Prisma sessions explicitly use UTC to keep adapter dates, SQL clocks, leases, and expirations consistent across host timezones. See [AUTHENTICATION](AUTHENTICATION.md) for the exact security policy, contracts, retention, deployment constraints, and tests.
 
 Before domain development, approve tenant/user relationships and access rules; scope every business query and mutation by authenticated tenant context; test cross-tenant access. A client-supplied tenant ID alone must never determine access. Row-level security may be defense in depth, but is not assumed or claimed here.
 
@@ -107,6 +107,14 @@ Docker Compose defines PostgreSQL 17, authenticated Redis 7.4, and local SMTP/Ma
 Poll transitions and writes are database-backed. Vote handling locks the poll row in a Prisma transaction, rechecks LIVE state, then writes through the `PollVote` uniqueness constraint before broadcasting the fresh aggregate. Q&A uses equivalent room checks and unique question-vote constraints. Web presentation uses same-origin allowlisted REST relays for initial data and Socket.IO only for deltas; neither browser client holds a credential token.
 
 The foundation does not include production hosting, backups, managed secret rotation, or deployment automation. These must be designed as their corresponding phases are approved.
+
+## Quality and production-operational boundary (Phases 15–16)
+
+Phase 15 verifies the local application artifact with strict compiler, lint, unit, integration, browser, accessibility, build, and Lighthouse checks. It does not turn local services into a production environment. The observed results and release blockers are in [QA_REPORT.md](QA_REPORT.md).
+
+Phase 16 defines a provider-neutral target: Next.js hosting, a NestJS service, managed PostgreSQL/Redis, private object storage, transactional email, HTTPS ingress, managed secrets, structured logs, error monitoring, verified backups, and rehearsed recovery. Migrations run once as a controlled release job; they are not run from every replica. PostgreSQL remains the source of truth, while Redis supports queues/rate limits and must not be treated as the sole record of business state.
+
+No deployment, production domain, real payment, production email provider, monitoring service, or backup system is configured by this repository. See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) and [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md) before making infrastructure changes.
 
 ## Certificates and Event Passport (Phase 11)
 

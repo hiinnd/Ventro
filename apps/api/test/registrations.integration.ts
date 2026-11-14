@@ -22,7 +22,7 @@ const run = randomUUID().replaceAll('-', '');
 const databaseName = 'ventro_org_it_' + run;
 const origin = 'http://127.0.0.1:3000';
 const password = 'Registration test password ' + run;
-type Actor = { id: string; cookie: string };
+type Actor = { id: string; email: string; cookie: string };
 let administrative: Client;
 let db: InstanceType<typeof PrismaService>;
 let api: ChildProcess | undefined;
@@ -46,7 +46,7 @@ function call(
   if (method !== 'get') requestToApi.send(body ?? {});
   return requestToApi;
 }
-async function person() {
+async function person(locale = 'en') {
   const email = 'registration-' + run + '-' + ++sequence + '@example.test';
   const passwordHash = await hash(password, {
     type: argon2id,
@@ -59,14 +59,40 @@ async function person() {
       email,
       name: 'Registration test participant',
       passwordHash,
+      locale,
       emailVerifiedAt: new Date(),
     },
   });
   const result = await call(undefined, 'post', 'auth/login', { email, password }).expect(200);
   return {
     id: user.id,
+    email,
     cookie: (result.headers['set-cookie'] as unknown as string[])[0]!.split(';')[0]!,
   };
+}
+async function waitFor<T>(operation: () => Promise<T | undefined>, timeout = 25000): Promise<T> {
+  const end = Date.now() + timeout;
+  do {
+    const value = await operation();
+    if (value !== undefined) return value;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  } while (Date.now() < end);
+  throw new Error('Timed out waiting for registration email delivery');
+}
+async function eventEmail(email: string, subject = 'Your VENTRO registration is confirmed') {
+  return waitFor(async () => {
+    const response = await fetch(
+      'http://127.0.0.1:8025/api/v1/search?query=' + encodeURIComponent('to:' + email),
+    );
+    const result = (await response.json()) as { messages?: { ID: string; Subject: string }[] };
+    const summary = result.messages?.find((message) => message.Subject === subject);
+    if (!summary) return undefined;
+    return (await (await fetch('http://127.0.0.1:8025/api/v1/message/' + summary.ID)).json()) as {
+      Text: string;
+      HTML: string;
+      Inline?: unknown[];
+    };
+  });
 }
 async function event(capacity: number | null, deadline?: Date) {
   const row = await db.event.create({
@@ -218,6 +244,33 @@ describe('dynamic registration integration with an isolated PostgreSQL database'
     expect(await db.registrationAnswer.count({ where: { registrationId: receipt.body.id } })).toBe(
       2,
     );
+    const delivery = await waitFor(async () => {
+      return (
+        (await db.emailOutbox.findFirst({
+          where: { userId: participant.id, kind: 'EVENT_NOTIFICATION', status: 'SENT' },
+        })) ?? undefined
+      );
+    });
+    expect(delivery.encryptedPayload).toBe('');
+    const email = await eventEmail(participant.email);
+    expect(email.Text).toContain('Registration event');
+    expect(email.Text).toContain('/en/tickets');
+    expect(email.HTML).toContain('cid:ventro-ticket-qr');
+    expect(JSON.stringify(email.Inline ?? [])).toContain('ventro-ticket-qr');
+    expect(
+      await db.notification.findFirst({
+        where: { userId: participant.id, kind: 'REGISTRATION_CONFIRMED' },
+      }),
+    ).not.toBeNull();
+    const arabicParticipant = await person('ar');
+    await call(arabicParticipant, 'post', 'events/' + row.slug + '/registrations', {
+      answers: { email: 'arabic@example.test', consent: true },
+    }).expect(201);
+    const arabicEmail = await eventEmail(arabicParticipant.email, 'تم تأكيد تسجيلك وتذكرتك جاهزة');
+    expect(arabicEmail.Text).toContain('الفعالية: Registration event');
+    expect(arabicEmail.Text).toContain('/ar/tickets');
+    expect(arabicEmail.HTML).toContain('lang="ar" dir="rtl"');
+    expect(JSON.stringify(arabicEmail.Inline ?? [])).toContain('ventro-ticket-qr');
     await call(participant, 'post', 'events/' + row.slug + '/registrations', { answers }).expect(
       409,
     );
@@ -235,6 +288,61 @@ describe('dynamic registration integration with an isolated PostgreSQL database'
       'get',
       'organizations/' + organizationId + '/events/' + row.id + '/registrations',
     ).expect(403);
+  });
+  it('registers a guest without a session, emails an opaque QR ticket, and prevents duplicate email enrollment', async () => {
+    const row = await event(10);
+    const guestEmail = 'guest-' + run + '@example.test';
+    const receipt = await call(undefined, 'post', 'events/' + row.slug + '/registrations', {
+      registrationType: 'GUEST',
+      guestName: 'Guest attendee',
+      guestEmail,
+      locale: 'en',
+      answers: { email: guestEmail, consent: true },
+    }).expect(201);
+    expect(receipt.body).toMatchObject({
+      registrationType: 'GUEST',
+      ticketAvailable: true,
+      emailNotificationQueued: true,
+    });
+    const registration = await db.registration.findUniqueOrThrow({
+      where: { id: receipt.body.id },
+    });
+    expect(registration).toMatchObject({
+      userId: null,
+      attendeeName: 'Guest attendee',
+      attendeeEmail: guestEmail,
+    });
+    const email = await eventEmail(guestEmail);
+    expect(email.Text).toContain('Registration event');
+    expect(email.Text).not.toContain('/en/tickets');
+    expect(email.HTML).toContain('cid:ventro-ticket-qr');
+    expect(JSON.stringify(email.Inline ?? [])).toContain('ventro-ticket-qr');
+    await call(undefined, 'post', 'events/' + row.slug + '/registrations', {
+      registrationType: 'GUEST',
+      guestName: 'Guest attendee',
+      guestEmail: guestEmail.toUpperCase(),
+      locale: 'en',
+      answers: { email: guestEmail, consent: true },
+    }).expect(409);
+    await call(undefined, 'post', 'events/' + row.slug + '/registrations', { answers }).expect(403);
+    const organizerRows = await call(
+      owner,
+      'get',
+      'organizations/' + organizationId + '/events/' + row.id + '/registrations?q=Guest',
+    ).expect(200);
+    expect(organizerRows.body.items[0]).toMatchObject({
+      name: 'Guest attendee',
+      email: guestEmail,
+    });
+    const ticket = await db.ticket.findUniqueOrThrow({
+      where: { registrationId: registration.id },
+    });
+    await call(
+      owner,
+      'post',
+      'organizations/' + organizationId + '/events/' + row.id + '/check-in/scan',
+      { credential: ticket.credential },
+    ).expect(200);
   });
   it('creates, validates, publishes, protects, duplicates and cancels events within the tenant', async () => {
     const draft = await call(owner, 'post', 'organizations/' + organizationId + '/events').expect(

@@ -168,12 +168,7 @@ test('organizer overview uses real metrics, searchable team data, live notices a
     .click();
   const nav = page.getByRole('navigation', { name: 'Organizer navigation', exact: true });
   for (const [section, label] of [
-    ['events', 'Events'],
-    ['registrations', 'Registrations'],
-    ['attendees', 'Attendees'],
     ['sessions', 'Sessions'],
-    ['polls', 'Polls & Q&A'],
-    ['certificates', 'Certificates'],
     ['analytics', 'Analytics'],
   ]) {
     await nav.getByRole('link', { name: label + ' Planned', exact: true }).click();
@@ -224,7 +219,7 @@ test('Arabic mobile dashboard supports keyboard navigation, both themes, respons
   await expect(drawer).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'فتح التنقل', exact: true })).toBeFocused();
   await page.getByRole('button', { name: 'فتح التنقل', exact: true }).click();
-  await page.getByRole('dialog').getByRole('link', { name: 'التسجيلات مخطّط', exact: true }).click();
+  await page.getByRole('dialog').getByRole('link', { name: 'الجلسات مخطّط', exact: true }).click();
   await expect(page.getByText('مخطّط · غير متاح بعد', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'عرض نظرة المؤسسة العامة', exact: true }).click();
   await metric(page, 'أعضاء الفريق', '٢');

@@ -102,7 +102,7 @@ export class TicketingService {
           return {
             status: 'CONFIRMED',
             scope: 'SESSION',
-            attendee: ticket.registration.userId,
+            attendee: ticket.registration.attendeeName,
             session: session.title,
             checkedInAt: attendance.createdAt.toISOString(),
           };
@@ -127,7 +127,7 @@ export class TicketingService {
         return {
           status: 'CONFIRMED',
           scope: 'EVENT',
-          attendee: ticket.registration.userId,
+          attendee: ticket.registration.attendeeName,
           checkedInAt: checkIn.createdAt.toISOString(),
         };
       } catch (error) {
@@ -150,11 +150,7 @@ export class TicketingService {
         tx.checkIn.count({ where: { eventId } }),
         tx.checkIn.findMany({
           where: { eventId },
-          include: {
-            ticket: {
-              include: { registration: { include: { user: { select: { name: true } } } } },
-            },
-          },
+          include: { ticket: { include: { registration: true } } },
           orderBy: { createdAt: 'desc' },
           take: 20,
         }),
@@ -165,7 +161,7 @@ export class TicketingService {
         attendancePercent: registered ? Math.round((checkedIn / registered) * 10000) / 100 : 0,
         recent: recent.map((item) => ({
           id: item.id,
-          attendee: item.ticket.registration.user.name,
+          attendee: item.ticket.registration.attendeeName,
           createdAt: item.createdAt.toISOString(),
         })),
       };

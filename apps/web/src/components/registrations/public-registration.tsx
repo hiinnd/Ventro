@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { registrationFormSchema, registrationReceiptSchema, type Locale } from '@ventro/types';
 import { Button, Input } from '@ventro/ui';
@@ -9,6 +10,9 @@ export function PublicRegistration({ locale, slug }: { locale: Locale; slug: str
   const router = useRouter();
   const [form, setForm] = useState<ReturnType<typeof registrationFormSchema.parse> | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [registrationType, setRegistrationType] = useState<'GUEST' | 'ACCOUNT'>('GUEST');
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
   const [message, setMessage] = useState('');
   const [pending, setPending] = useState(false);
   useEffect(() => {
@@ -36,7 +40,12 @@ export function PublicRegistration({ locale, slug }: { locale: Locale; slug: str
       const r = await fetch('/api/registrations/events/' + slug + '/registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Ventro-CSRF': '1' },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({
+          answers,
+          registrationType,
+          ...(registrationType === 'GUEST' ? { guestName, guestEmail } : {}),
+          locale,
+        }),
       });
       if (!r.ok) {
         const x = await r.json().catch(() => null);
@@ -51,7 +60,16 @@ export function PublicRegistration({ locale, slug }: { locale: Locale; slug: str
       }
       const receipt = registrationReceiptSchema.parse(await r.json());
       router.push(
-        '/' + locale + '/registrations/confirmation?id=' + encodeURIComponent(receipt.id),
+        '/' +
+          locale +
+          '/registrations/confirmation?id=' +
+          encodeURIComponent(receipt.id) +
+          '&email=' +
+          (receipt.emailNotificationQueued ? '1' : '0') +
+          '&type=' +
+          receipt.registrationType.toLowerCase() +
+          '&event=' +
+          encodeURIComponent(receipt.eventSlug),
       );
     } catch {
       setMessage(
@@ -64,6 +82,78 @@ export function PublicRegistration({ locale, slug }: { locale: Locale; slug: str
   return (
     <section className="m-feature-card">
       <h2>{t('Register for this event', 'سجّل في هذه الفعالية')}</h2>
+      <fieldset className="my-5 space-y-3">
+        <legend className="font-semibold">
+          {t('How would you like to register?', 'كيف تريد التسجيل؟')}
+        </legend>
+        <label className="flex items-start gap-2">
+          <input
+            checked={registrationType === 'GUEST'}
+            name="registration-type"
+            onChange={() => setRegistrationType('GUEST')}
+            type="radio"
+          />
+          <span>
+            <strong>{t('Guest registration', 'تسجيل كضيف')}</strong>
+            <small className="block">
+              {t(
+                'Receive your ticket and QR code by email.',
+                'استلم تذكرتك ورمز QR عبر البريد الإلكتروني.',
+              )}
+            </small>
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input
+            checked={registrationType === 'ACCOUNT'}
+            name="registration-type"
+            onChange={() => setRegistrationType('ACCOUNT')}
+            type="radio"
+          />
+          <span>
+            <strong>{t('VENTRO Account', 'حساب VENTRO')}</strong>
+            <small className="block">
+              {t(
+                'Keep tickets, certificates, and your Event Passport together.',
+                'احتفظ بالتذاكر والشهادات وEvent Passport في مكان واحد.',
+              )}
+            </small>
+          </span>
+        </label>
+      </fieldset>
+      {registrationType === 'GUEST' ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label>
+            <span>{t('Full name', 'الاسم الكامل')} *</span>
+            <Input
+              autoComplete="name"
+              onChange={(event) => setGuestName(event.target.value)}
+              required
+              value={guestName}
+            />
+          </label>
+          <label>
+            <span>{t('Email address', 'البريد الإلكتروني')} *</span>
+            <Input
+              autoComplete="email"
+              onChange={(event) => setGuestEmail(event.target.value)}
+              required
+              type="email"
+              value={guestEmail}
+            />
+          </label>
+        </div>
+      ) : (
+        <p className="my-4 text-sm text-muted-foreground">
+          {t(
+            'Sign in with a verified account to register this way.',
+            'سجّل الدخول بحساب موثّق لإتمام التسجيل بهذه الطريقة.',
+          )}{' '}
+          <Link className="ui-focus" href={'/' + locale + '/login'}>
+            {t('Sign in', 'تسجيل الدخول')}
+          </Link>
+        </p>
+      )}
       {form.fields.filter(shown).map((field) => (
         <label key={field.id} className="block my-3">
           <span>

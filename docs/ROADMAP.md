@@ -54,3 +54,9 @@ Phase 5 does not authorize event creation, attendance, registration, ticketing o
 | Future · Production operations  | Deployment, backups, observability, restore testing, load tests                              | Hosting and operational requirements agreed |
 
 Do not start a later phase while a current verification requirement remains unresolved. Consult PROJECT_STATE for the exact current gate and host limitations.
+
+## Phase 15–16 status
+
+Phase 15 local QA is complete with actual passing static, unit, integration, production-build, focused browser, and accessibility checks. It also identified a release blocker: Arabic mobile Lighthouse performance is currently insufficient. Phase 16 has produced deployment, operations, security, privacy, and pilot documentation only. No production deployment or launch has been performed.
+
+Before a pilot, resolve the mobile performance gap; complete Phase 12 notifications; decide Phase 13 billing/admin scope while keeping payments disabled; then complete managed infrastructure, monitoring, backup/restore rehearsal, secrets, legal/privacy review, and external security testing. Refer to `QA_REPORT.md` and `LAUNCH_READINESS_REPORT.md` for the non-negotiable gates.
