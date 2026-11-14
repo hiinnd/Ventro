@@ -1,5 +1,15 @@
 # Architecture
 
+## Optional organizer AI
+
+AiModule exposes tenant-scoped GET/POST organizations/:id/ai. AiProvider isolates
+the concrete Anthropic Messages HTTP adapter. Environment defaults to disabled,
+with secrets confined to the API. Generation checks live events:write permission,
+explicit non-personal-input authorization and a Redis atomic daily counter before
+network I/O. No participant query, event mutation, tool execution or output HTML is
+part of this boundary. The UI requires manual review before copying a draft.
+See [AI_ASSISTANT.md](AI_ASSISTANT.md) for configuration, privacy and verification.
+
 ## Boundary and deployment model
 
 VENTRO is a pnpm modular monolith: one Next.js web application and one NestJS API backed by PostgreSQL and Redis. There are no business modules in Phase 1. Socket.IO and BullMQ belong to later approved real-time and background-job milestones; their services and packages are deliberately not initialized yet.
@@ -90,4 +100,18 @@ The localized workspace adds organization creation/settings, team roles/removal,
 
 Docker Compose defines PostgreSQL 17, authenticated Redis 7.4, and local SMTP/Mailpit, with persistent named volumes, health checks, loopback host bindings, and non-escalating containers. Root `.env` supplies development credentials. Application startup validates protocols, ports, allowed origins, and production HTTPS origins.
 
-The foundation does not include production hosting, backups, managed secret rotation, business domains beyond organization management, queues, websocket events, or deployment automation. These must be designed as their corresponding phases are approved.
+## Live engagement (Phase 10)
+
+`EngagementModule` is a modular-monolith feature, not a separate realtime service. Its REST controller and Socket.IO `/engagement` namespace use the existing session cookie, verified-email guard, origin policy, audit service, Prisma connection, and organization authorization. A WebSocket handshake requires both an allowed `WEB_ORIGINS` origin and a valid session. Joining `event:<id>` then independently checks organization membership or confirmed registration; client event IDs never grant access by themselves.
+
+Poll transitions and writes are database-backed. Vote handling locks the poll row in a Prisma transaction, rechecks LIVE state, then writes through the `PollVote` uniqueness constraint before broadcasting the fresh aggregate. Q&A uses equivalent room checks and unique question-vote constraints. Web presentation uses same-origin allowlisted REST relays for initial data and Socket.IO only for deltas; neither browser client holds a credential token.
+
+The foundation does not include production hosting, backups, managed secret rotation, or deployment automation. These must be designed as their corresponding phases are approved.
+
+## Certificates and Event Passport (Phase 11)
+
+Certificates are immutable snapshots of the recipient name, event title, eligibility outcome, template, learning hours, issue date, and UUID verification ID. The public verifier returns only the verification result and display-safe certificate facts; PDF bytes and Passport settings remain private. Revocation changes the certificate state server-side and makes verification invalid immediately.
+
+BullMQ uses the existing authenticated Redis instance. The API owns a narrowly scoped `certificate-generation` queue/worker with deterministic job IDs, bounded retries and exponential backoff. PostgreSQL remains the source of truth: a job only renders a pending certificate, persists PDF bytes, and records `GENERATED` or `FAILED`. There is no client-controlled PDF content or background-job authorization path.
+
+Passport reads derive completed events, attendance, certificates, and learning hours from real registrations/check-ins/certificates. The owner always has a private view. A public slug only resolves when `profileVisible` is enabled; each additional field group has its own visibility setting, preventing email, internal attendance, or unshared achievements from leaking.

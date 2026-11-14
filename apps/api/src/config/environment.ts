@@ -19,6 +19,10 @@ export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     API_HOST: z.string().min(1).default('127.0.0.1'),
+    AI_PROVIDER: z.enum(['disabled', 'anthropic']).default('disabled'),
+    AI_API_KEY: z.string().default(''),
+    AI_MODEL: z.string().max(120).default(''),
+    AI_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(20),
     API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
     DATABASE_URL: z
       .string()

@@ -2,7 +2,14 @@ import type { Locale } from '@ventro/types';
 import { workspacePage } from '../organizations/routes';
 export function safeLoginDestination(value: string | null, locale: Locale): string {
   if (value && value.startsWith('/' + locale + '/') && !/[?#%\\]/.test(value)) {
-    if (value === '/' + locale + '/account' || workspacePage(value.split('/').slice(2)))
+    const eventRoom = new RegExp(
+      '^/' + locale + '/events/[a-z0-9-]{1,120}/(?:live|presenter)$',
+    ).test(value);
+    if (
+      value === '/' + locale + '/account' ||
+      workspacePage(value.split('/').slice(2)) ||
+      eventRoom
+    )
       return value;
   }
   return '/' + locale + '/account';

@@ -31,9 +31,7 @@ async function requestAuth(action: string, body: unknown, method = 'POST'): Prom
     credentials: 'same-origin',
     cache: 'no-store',
     headers:
-      method === 'GET'
-        ? undefined
-        : { 'Content-Type': 'application/json', 'X-Ventro-CSRF': '1' },
+      method === 'GET' ? undefined : { 'Content-Type': 'application/json', 'X-Ventro-CSRF': '1' },
     body: method === 'GET' ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw new AuthError(response.status);
@@ -360,7 +358,9 @@ export function AuthForm({
               if (needsToken && !token) return;
               void run(async () => {
                 if (view === 'login') {
-                  authSessionSchema.parse(await requestAuth('login', { email: email.trim(), password }));
+                  authSessionSchema.parse(
+                    await requestAuth('login', { email: email.trim(), password }),
+                  );
                   setPassword('');
                   // A full navigation makes the browser attach the freshly set
                   // HTTP-only session cookie before a protected server route is
@@ -581,7 +581,11 @@ export function AuthForm({
                   {t('Your organizations', 'مؤسساتك')}
                 </Link>
               </Button>
-              <Button asChild variant="outline" className="mb-5 ms-2"><Link href={'/' + locale + '/dashboard'} prefetch={false}>{t('Organizer dashboard', 'لوحة المنظّم')}</Link></Button>
+              <Button asChild variant="outline" className="mb-5 ms-2">
+                <Link href={'/' + locale + '/dashboard'} prefetch={false}>
+                  {t('Organizer dashboard', 'لوحة المنظّم')}
+                </Link>
+              </Button>
               <h2>{t('Session security', 'أمان الجلسة')}</h2>
               <p>
                 {t('Signed in until ', 'تستمر الجلسة حتى ')}

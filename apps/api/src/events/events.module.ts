@@ -5,5 +5,9 @@ import { RedisModule } from '../redis/redis.module';
 import { OrganizationModule } from '../organizations/organization.module';
 import { EventsController, PublicEventsController } from './events.controller';
 import { EventsService } from './events.service';
-@Module({ imports: [AuthModule, DatabaseModule, RedisModule, OrganizationModule], controllers: [EventsController, PublicEventsController], providers: [EventsService] })
+@Module({
+  imports: [AuthModule, DatabaseModule, RedisModule, OrganizationModule],
+  controllers: [EventsController, PublicEventsController],
+  providers: [EventsService],
+})
 export class EventsModule {}

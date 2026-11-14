@@ -405,7 +405,10 @@ export function DashboardNotifications({
         variant="ghost"
         className="dash-notice-trigger"
         aria-label={t('Organization updates', 'تحديثات المؤسسة')}
-        onClick={() => { notices.refresh(); setOpen(true); }}
+        onClick={() => {
+          notices.refresh();
+          setOpen(true);
+        }}
       >
         <DashboardIcon name="bell" className="size-5" />
         {Boolean(notices.data?.items.length) && <span className="dash-notice-dot" aria-hidden />}

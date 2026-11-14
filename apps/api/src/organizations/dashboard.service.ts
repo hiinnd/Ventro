@@ -7,6 +7,7 @@ import type {
   DashboardActivityQuery,
   DashboardOverviewQuery,
   DashboardSearchDto,
+  AnalyticsQuery,
 } from './dashboard.dto';
 
 export const dashboardActivityGroups = {
@@ -210,6 +211,78 @@ export class DashboardService {
         if (expired) items.push({ code: 'INVITATIONS_EXPIRED', count: expired, section: 'team' });
       }
       return { organizationId: id, generatedAt: new Date().toISOString(), items };
+    });
+  }
+  analytics(auth: AuthContext, id: string, query: AnalyticsQuery) {
+    return this.organizations.withTenant(auth, id, 'dashboard:read', async (tx) => {
+      const now = new Date();
+      const start = new Date(now.getTime() - (Number(query.range) - 1) * 86400000);
+      const [
+        registrations,
+        checkedIn,
+        sessionAttendance,
+        pollVotes,
+        questions,
+        certificates,
+        timeline,
+        comparisons,
+      ] = await Promise.all([
+        tx.registration.count({
+          where: { event: { organizationId: id }, status: 'CONFIRMED', createdAt: { gte: start } },
+        }),
+        tx.checkIn.count({ where: { event: { organizationId: id }, createdAt: { gte: start } } }),
+        tx.sessionAttendance.count({
+          where: { session: { event: { organizationId: id } }, createdAt: { gte: start } },
+        }),
+        tx.pollVote.count({
+          where: { poll: { event: { organizationId: id } }, createdAt: { gte: start } },
+        }),
+        tx.question.count({ where: { event: { organizationId: id }, createdAt: { gte: start } } }),
+        tx.certificate.count({
+          where: { organizationId: id, status: 'GENERATED', issuedAt: { gte: start } },
+        }),
+        tx.$queryRaw<Array<{ date: string; registrations: number; checkins: number }>>(
+          Prisma.sql`SELECT day::date::text AS date, COALESCE(r.count,0)::int AS registrations, COALESCE(c.count,0)::int AS checkins FROM generate_series(${start}::timestamptz, ${now}::timestamptz, interval '1 day') day LEFT JOIN (SELECT date_trunc('day', "createdAt") day, count(*) count FROM "Registration" r JOIN "Event" e ON e.id=r."eventId" WHERE e."organizationId"=${id}::uuid AND r."status"='CONFIRMED' AND r."createdAt">=${start} GROUP BY 1) r ON r.day=date_trunc('day',day) LEFT JOIN (SELECT date_trunc('day', ci."createdAt") day, count(*) count FROM "CheckIn" ci JOIN "Event" e ON e.id=ci."eventId" WHERE e."organizationId"=${id}::uuid AND ci."createdAt">=${start} GROUP BY 1) c ON c.day=date_trunc('day',day) ORDER BY day`,
+        ),
+        tx.event.findMany({
+          where: { organizationId: id },
+          orderBy: { startsAt: 'desc' },
+          take: 25,
+          select: {
+            id: true,
+            title: true,
+            registrations: { where: { status: 'CONFIRMED' }, select: { id: true } },
+            checkIns: { select: { id: true } },
+            certificates: { where: { status: 'GENERATED' }, select: { id: true } },
+          },
+        }),
+      ]);
+      const totalRegistrations = await tx.registration.count({
+        where: { event: { organizationId: id }, status: 'CONFIRMED' },
+      });
+      return {
+        generatedAt: now.toISOString(),
+        range: query.range,
+        metrics: {
+          registrations,
+          checkedIn,
+          attendanceRate: totalRegistrations
+            ? Math.round((checkedIn / totalRegistrations) * 10000) / 100
+            : 0,
+          sessionAttendance,
+          pollVotes,
+          questions,
+          certificates,
+        },
+        timeline,
+        comparisons: comparisons.map((event) => ({
+          id: event.id,
+          title: event.title,
+          registrations: event.registrations.length,
+          checkIns: event.checkIns.length,
+          certificates: event.certificates.length,
+        })),
+      };
     });
   }
 }

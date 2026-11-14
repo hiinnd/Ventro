@@ -1,6 +1,16 @@
 # Roadmap
 
-> Working update — Phases 7 and 8 are in implementation. Event lifecycle/public discovery and dynamic registration are connected; both retain dedicated integration and browser verification gates before they can be marked complete.
+Phase 14 optional assistant implementation is present. Live-provider acceptance
+requires configured credentials/model and operator review; default remains disabled.
+This is not closure of outstanding Phase 11–13 work.
+
+> Phase 12 sub-milestone 12A is applied locally: notification persistence, preferences, idempotency, and supporting indexes exist. Analytics/notification delivery and interface work remain active.
+
+> Phase 11 implementation update: certificate/passport persistence, BullMQ PDF generation, eligibility/revocation/verification APIs, and focused integration coverage are in place locally. Complete browser regression is the remaining Phase 11 gate; Phase 12 should begin only after that gate is accepted.
+
+> Latest update (2026-11-14): Phase 10 live-engagement migration, multi-client Socket.IO authorization/broadcast coverage, and the focused live-room/organizer/presenter browser flow are verified locally. Broader regression and release verification remain required; see PROJECT_STATE for exact results.
+
+> Working update — Phases 7 and 8 are in implementation. Event lifecycle/public discovery and dynamic registration are connected; dedicated isolated-database integration tests now cover their critical backend behavior. Browser verification gates remain before either phase can be marked complete.
 
 Phases 1–5 are implemented and verified within their stated scope. Phase 6 organizer dashboard is authorized and in progress. Exact results and host limitations are in PROJECT_STATE. Later entries are dependencies for future planning, not permission to implement.
 

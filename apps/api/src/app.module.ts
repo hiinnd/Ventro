@@ -10,6 +10,10 @@ import { AuthModule } from './auth/auth.module';
 import { OrganizationModule } from './organizations/organization.module';
 import { EventsModule } from './events/events.module';
 import { RegistrationsModule } from './registrations/registrations.module';
+import { TicketingModule } from './ticketing/ticketing.module';
+import { EngagementModule } from './engagement/engagement.module';
+import { CertificatesModule } from './certificates/certificates.module';
+import { AiModule } from './ai/ai.module';
 import { validateEnvironment, type Environment } from './config/environment';
 
 // Commands may be invoked from the repository root, an individual workspace,
@@ -52,6 +56,10 @@ const environmentFile = resolve(__dirname, '../../../.env');
     OrganizationModule,
     EventsModule,
     RegistrationsModule,
+    TicketingModule,
+    EngagementModule,
+    CertificatesModule,
+    AiModule,
   ],
 })
 export class AppModule {}

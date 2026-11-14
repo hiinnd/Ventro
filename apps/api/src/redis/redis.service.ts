@@ -29,6 +29,9 @@ export class RedisService implements OnModuleDestroy {
     )) as [number, number];
     return { count: result[0], retryAfter: Math.max(1, result[1]) };
   }
+  bullConnection(): Redis {
+    return this.client.duplicate({ maxRetriesPerRequest: null });
+  }
   onModuleDestroy(): void {
     this.client.disconnect();
   }

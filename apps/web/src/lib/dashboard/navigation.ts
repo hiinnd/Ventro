@@ -2,12 +2,12 @@ import type { DashboardSection, Locale } from '@ventro/types';
 export const dashboardSections: { id: DashboardSection; en: string; ar: string; ready: boolean }[] =
   [
     { id: 'overview', en: 'Overview', ar: 'نظرة عامة', ready: true },
-    { id: 'events', en: 'Events', ar: 'الفعاليات', ready: false },
-    { id: 'registrations', en: 'Registrations', ar: 'التسجيلات', ready: false },
-    { id: 'attendees', en: 'Attendees', ar: 'الحضور', ready: false },
+    { id: 'events', en: 'Events', ar: 'الفعاليات', ready: true },
+    { id: 'registrations', en: 'Registrations', ar: 'التسجيلات', ready: true },
+    { id: 'attendees', en: 'Attendees', ar: 'الحضور', ready: true },
     { id: 'sessions', en: 'Sessions', ar: 'الجلسات', ready: false },
-    { id: 'polls', en: 'Polls & Q&A', ar: 'الاستطلاعات والأسئلة', ready: false },
-    { id: 'certificates', en: 'Certificates', ar: 'الشهادات', ready: false },
+    { id: 'polls', en: 'Polls & Q&A', ar: 'الاستطلاعات والأسئلة', ready: true },
+    { id: 'certificates', en: 'Certificates', ar: 'الشهادات', ready: true },
     { id: 'analytics', en: 'Analytics', ar: 'التحليلات', ready: false },
     { id: 'team', en: 'Team', ar: 'الفريق', ready: true },
     { id: 'settings', en: 'Settings', ar: 'الإعدادات', ready: true },

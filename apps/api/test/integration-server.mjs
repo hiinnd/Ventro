@@ -33,7 +33,8 @@ try {
   await app.listen(0, '127.0.0.1');
   const address = app.getHttpServer().address();
   process.send?.({ port: address.port });
-} catch {
+} catch (error) {
   process.stderr.write('Isolated integration API failed to start.\n');
+  process.stderr.write(error instanceof Error ? error.stack + '\n' : String(error) + '\n');
   process.exit(1);
 }

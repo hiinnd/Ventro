@@ -1,10 +1,55 @@
 # Project state
 
-> Working update — Phase 6 dashboard browser regression and Phase 7 event management are in progress. Phase 7 has a locally applied Prisma migration for event records/categories/speakers/sessions/media, tenant-scoped API commands, bounded cover storage, and separated public reads. Final verification results will replace this update when the phase is complete.
+## Phase 14 — optional AI assistant (2026-11-14)
 
-> Phase 8 working update — a locally applied migration adds registration forms, fields, registrations, and answers. Server-side schema/submission validation, tenant-scoped organizer APIs, duplicate prevention and capacity locking are implemented. The organizer registration workspace now exposes form building, publishing, field ordering/conditional visibility, search/filter and CSV export; public registration, confirmation, and My Registrations views are connected. Dedicated registration integration/race coverage is still required before this phase can be marked verified.
+Implementation added alongside the existing incomplete phases; this does not mark
+Phases 11–13 complete or remove their remaining gates.
 
-Updated: 2026-11-13 (Asia/Amman).
+- Five organizer drafting tools in the Events workspace, English/Arabic labels,
+  disabled/loading/failure states, editable AI-labeled output and explicit review
+  before copying. No automatic publication or participant-data reads.
+- Server-only Anthropic adapter behind AiProvider, environment enablement, strict
+  input/consent validation, live tenant authorization, Redis daily organization
+  quota and safe timeout/error handling.
+- Modified: API ai module, app module, environment config and tests; web assistant,
+  dashboard shell and organization proxy; .env.example and AI_ASSISTANT.md.
+- Database changes: none. Redis stores expiring usage counters; no prompt storage.
+- Verification: focused provider/security tests passed (5). Live-provider execution
+  is pending an operator-supplied model/key. See AI_ASSISTANT.md for test boundaries.
+- Executed successfully: API build and test typecheck; web typecheck and production
+  build; workspace lint; git diff --check. The targeted PostgreSQL HTTP integration
+  test passed (1): unauthenticated/foreign-tenant rejection, disabled status and
+  invalid-input rejection.
+- Known limits: manual anonymization required; heuristics cannot identify every
+  personal detail. Copy approval is a draft workflow, not an event publication.
+  Review provider terms and verify real generation before production enablement.
+
+Phase 14 commands (local pnpm invoked via npm exec --prefix .tools):
+
+- pnpm --filter @ventro/api typecheck: passed (includes Nest build).
+- pnpm --filter @ventro/web typecheck and build: passed.
+- pnpm lint: passed.
+- pnpm --filter @ventro/api exec vitest run --config vitest.config.mts test/ai.test.ts: 5 passed.
+- pnpm --filter @ventro/api exec vitest run --config vitest.integration.config.mts test/registrations.integration.ts -t "protects optional AI": 1 passed, other scenarios skipped by filter.
+- pnpm --filter @ventro/web test: 15 passed.
+- git diff --check: passed.
+- pnpm --filter @ventro/web exec playwright test engagement.spec.ts -g "optional AI":
+  final run 1 passed (55.2 seconds). Covers actual disabled UI and mocked-generation
+  consent/review/reset behavior. Initial attempts found a fixture PostgreSQL timeout
+  and an overly strict label locator; the final run passed after correcting the
+  locator. No live-provider result is claimed.
+
+> Latest Phase 10 verification (2026-11-14, Asia/Amman) supersedes the earlier working note below: migration `20261114093000_live_engagement` is applied to the local development PostgreSQL database. Focused integration coverage passed for persisted polling/Q&A, duplicate/closed/unauthorized actions, live Socket.IO broadcast to two authorized clients, and rejection of an unauthorized event-room connection. The focused Playwright flow passed for the authenticated participant live room, organizer engagement workspace, and presenter results view.
+
+> Phase 7 working update — event records/categories/speakers/sessions/media have a locally applied Prisma migration, tenant-scoped transactional commands, bounded cover storage, public reads, and a connected multi-step builder for essentials, schedule, speakers, agenda, cover uploads, review, draft save, publish, duplicate, unpublish and cancellation. An isolated PostgreSQL integration suite verifies invalid schedules, public discovery, private protection, duplication, state transitions and cross-tenant authorization. Browser verification remains before marking the phase complete.
+
+> Phase 8 working update — a locally applied migration adds registration forms, fields, registrations, and answers. Server-side schema/submission validation, tenant-scoped organizer APIs, duplicate prevention and capacity locking are implemented. The organizer registration workspace exposes form building, publishing, field ordering/conditional visibility, search/filter and CSV export; public registration, confirmation, and My Registrations views are connected. A real isolated-PostgreSQL integration suite now verifies persisted responses, duplicate prevention, tenant authorization, registration deadlines, private-event protection, and concurrent capacity enforcement. Broader browser regression remains required before this phase can be marked verified.
+
+Updated: 2026-11-14 (Asia/Amman).
+
+> Phase 10 working update — persistent Poll/PollOption/PollVote/Question/QuestionVote models and a Socket.IO gateway are implemented. WebSocket handshake enforces the allowed web origin and a valid HTTP-only session; joining an event room additionally requires membership or confirmed registration. Poll votes lock the poll inside a transaction to prevent concurrent duplicate votes, and unique question-vote constraints prevent duplicate upvotes. REST and Socket.IO actions validate state/room access server-side, while organizer and participant live-room UIs are connected. The new migration has not yet been deployed to the local development database and multi-client browser/WebSocket verification remains outstanding.
+
+> Phase 9 working update — a locally applied ticketing migration adds opaque UUID credentials, SHA-256 secret hashes, revocation support, event check-ins and session attendance. A ticket is created atomically with a successful registration. Authenticated staff/organizers scan only opaque credentials; tenant/event ownership, ticket activity, and duplicate attendance are enforced on the server and audited. Participant ticket presentation now renders a real QR code with no personal data and supports printing; the authorized attendee dashboard has event metrics, recent scans, manual credential input, and camera scanning where the browser supports BarcodeDetector. The isolated PostgreSQL integration suite covers ticket issue, invalid/revoked/duplicate scans, unauthorized scans, and statistics. Browser/device verification remains outstanding.
 
 ## Current milestone
 
@@ -228,3 +273,60 @@ No Phase 5 implementation blocker remains. The host still lacks Docker Engine; r
 Production requires the existing HTTPS/SMTP/secret/legal/ingress/backup/abuse-control decisions and a reviewed trusted Platform Admin provisioning procedure. Frontend proxy network-rate buckets remain shared across users, as documented in AUTHENTICATION. No RLS or external security audit is claimed. Logo storage and organization/team caps are explicit initial limits in ORGANIZATIONS, not approved pricing plans. Organization/invitation records require managed deletion; no organization-delete, archive, owner-impersonation or full platform-operations console is implemented.
 
 Event operations and event-level staffing/participant rules require a later explicit prompt and verified Phase 5. They must reuse current session, verified-email, tenant and permission checks and add their own cross-tenant tests. Earlier mobile marketing performance findings remain unchanged; this phase does not claim new Lighthouse scores.
+
+## Phase 10 local verification update
+
+### Completed features
+
+- Applied `20261114093000_live_engagement` locally. It creates polling and Q&A persistence with uniqueness constraints for participant votes.
+- Verified a real Socket.IO namespace with two authorized connected clients: a vote from one client was broadcast as updated results to the other. An authenticated user without event membership/registration received `room:error` and was disconnected.
+- Added a protected presenter results page and safe post-login return paths for `/events/:slug/live` and `/events/:slug/presenter`. The presenter receives organizer-only poll data; the participant live room remains authorized by the backend.
+
+### Modified files
+
+- `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/20261114093000_live_engagement/*`, and `apps/api/src/engagement/*`.
+- `apps/web/src/components/engagement/*`, live/presenter routes, engagement proxy, dashboard navigation, and authentication return-path validation.
+- `apps/api/test/registrations.integration.ts`, `apps/web/test/ui/engagement.spec.ts`, and `apps/web/test/organization-boundary.test.ts`.
+
+### Commands and results
+
+| Command / check                                                           | Observed result                                                                                               |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @ventro/api db:deploy`                                     | Applied `20261114093000_live_engagement` successfully to local PostgreSQL.                                    |
+| Focused Socket.IO integration test                                        | Passed: authorized multi-client result broadcast and unauthorized room rejection.                             |
+| Focused registration/ticket/engagement integration suite                  | Passed 7 tests, including persisted votes/Q&A and live socket coverage.                                       |
+| `pnpm --filter @ventro/web test -- organization-boundary.test.ts`         | Passed 15 tests, including new live/presenter safe-return assertions.                                         |
+| `pnpm --filter @ventro/web test:ui engagement.spec.ts`                    | Passed local authenticated-browser flow for live room, organizer engagement dashboard, and presenter results. |
+| `pnpm lint`, API build/typecheck, web typecheck/build, `git diff --check` | Passed after correcting the effects cleanup and lint findings.                                                |
+
+### Known issues and next dependencies
+
+The local checks use the portable PostgreSQL/Redis services because Docker Engine is unavailable. Presenter access is authenticated and data remains organizer-authorized at the API; a future presenter assignment model can narrow page-level access further. The full historical integration command was not accepted as a phase gate in this run because separately launched legacy suites overlapped during exploratory verification; focused Phase 10 coverage above is the valid result.
+
+## Phase 11 implementation update
+
+### Completed features
+
+- Applied `20261114110000_certificates_passport` locally. It adds certificate templates, generated/revoked certificates, public verification IDs, private PDF bytes, participant passports, and separate passport visibility settings.
+- Added tenant-scoped template creation, eligible issuance, revocation, certificate download, public verification, private passport settings, and privacy-filtered shareable Passport reads.
+- Eligibility is evaluated server-side from confirmed registration, event completion, event check-in by default, and an optional required-session list. Issuance is idempotent per registration/template.
+- BullMQ processes certificate PDF jobs against Redis with retry/backoff. PDFs contain snapshot recipient/event values, organization name, issue date, learning hours, and a verification ID; failures are marked `FAILED` and revoked certificates cannot regenerate.
+- Added authenticated Passport and public verification/Passport pages. Certificate and Passport routes use the existing same-origin cookie relay and server-side privacy enforcement.
+
+### Commands and results
+
+| Command / check                                                     | Observed result                                                                                   |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `pnpm --filter @ventro/api db:generate`, `db:validate`, `db:deploy` | Prisma client/schema validated and migration applied to local PostgreSQL.                         |
+| Focused certificate integration test                                | Passed: eligible PDF generation, download, public verification, revocation, and Passport privacy. |
+| API build, web typecheck, lint, web build, `git diff --check`       | Executed after implementation; no source errors reported before handoff.                          |
+
+### Known issues and next dependencies
+
+The certificate PDF is intentionally a first branded text layout using the organization name; adding uploaded background templates or localized PDF typography needs approved design assets and Arabic-font embedding. Jobs run in the API process for this modular-monolith foundation; a separate worker deployment is an operational scaling decision. Phase 12 remains queued until Phase 11 browser-regression coverage is expanded beyond the focused backend/PDF check.
+
+## Phase 12 sub-milestone 12A
+
+- Added and locally applied `20261114123000_analytics_notifications`: persisted `Notification`, `NotificationPreference`, an idempotency key, notification categories, and user/organization/event query indexes.
+- Prisma generation and validation passed; `db:deploy` applied the migration successfully to local PostgreSQL.
+- Remaining 12B work: tenant-scoped analytics queries/CSV, event-driven notification creation, preference-aware BullMQ email delivery, local Mailpit retry verification, and the dashboard/chart interfaces. No fabricated analytics or placeholder delivery behavior has been added.

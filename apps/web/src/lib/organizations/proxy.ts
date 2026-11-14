@@ -15,6 +15,8 @@ import {
   eventSchema,
   registrationFormSchema,
   registrationListSchema,
+  checkInDashboardSchema,
+  checkInReceiptSchema,
 } from '@ventro/types';
 import { authApiUrl } from '../auth/server';
 import { authCookieHeader, isSafeAuthMutation } from '../auth/routes';
@@ -41,6 +43,21 @@ export function organizationProxyTarget(resource: string, segments: string[], me
   });
   if (!path && ['GET', 'POST'].includes(method))
     return route(method === 'GET' ? organizationListSchema : organizationSchema);
+  if (new RegExp('^' + uuid + '/ai$').test(path) && ['GET', 'POST'].includes(method))
+    return route(
+      method === 'GET'
+        ? z.object({
+            enabled: z.boolean(),
+            provider: z.string().nullable(),
+            dailyLimit: z.number(),
+          })
+        : z.object({
+            content: z.string(),
+            aiGenerated: z.literal(true),
+            requiresReview: z.literal(true),
+            provider: z.string(),
+          }),
+    );
   if (path === 'dashboard-options' && method === 'GET') return route(organizationListSchema);
   if (new RegExp('^' + uuid + '/dashboard/overview$').test(path) && method === 'GET')
     return route(dashboardOverviewSchema);
@@ -52,18 +69,39 @@ export function organizationProxyTarget(resource: string, segments: string[], me
     return route(memberListSchema);
   if (new RegExp('^' + uuid + '/events$').test(path) && ['GET', 'POST'].includes(method))
     return route(method === 'GET' ? eventListSchema : eventSchema);
-  if (new RegExp('^' + uuid + '/events/' + uuid + '$').test(path) && ['GET', 'PATCH'].includes(method))
+  if (
+    new RegExp('^' + uuid + '/events/' + uuid + '$').test(path) &&
+    ['GET', 'PATCH'].includes(method)
+  )
     return route(eventSchema);
-  if (new RegExp('^' + uuid + '/events/' + uuid + '/(publish|unpublish|cancel|duplicate)$').test(path) && method === 'POST')
+  if (
+    new RegExp('^' + uuid + '/events/' + uuid + '/(publish|unpublish|cancel|duplicate)$').test(
+      path,
+    ) &&
+    method === 'POST'
+  )
     return route(eventSchema);
   if (new RegExp('^' + uuid + '/events/' + uuid + '/cover$').test(path) && method === 'POST')
     return route(eventSchema, false, true);
-  if (new RegExp('^' + uuid + '/events/' + uuid + '/registration-form$').test(path) && ['GET','POST'].includes(method))
+  if (
+    new RegExp('^' + uuid + '/events/' + uuid + '/registration-form$').test(path) &&
+    ['GET', 'POST'].includes(method)
+  )
     return route(registrationFormSchema);
-  if (new RegExp('^' + uuid + '/events/' + uuid + '/registration-form/publish$').test(path) && method === 'POST')
+  if (
+    new RegExp('^' + uuid + '/events/' + uuid + '/registration-form/publish$').test(path) &&
+    method === 'POST'
+  )
     return route(registrationFormSchema);
   if (new RegExp('^' + uuid + '/events/' + uuid + '/registrations$').test(path) && method === 'GET')
     return route(registrationListSchema);
+  if (new RegExp('^' + uuid + '/events/' + uuid + '/check-in$').test(path) && method === 'GET')
+    return route(checkInDashboardSchema);
+  if (
+    new RegExp('^' + uuid + '/events/' + uuid + '/check-in/scan$').test(path) &&
+    method === 'POST'
+  )
+    return route(checkInReceiptSchema);
   if (path === 'invitations' && method === 'GET') return route(invitationListSchema);
   if (path === 'invitations/resolve' && method === 'POST') return route(invitationSchema);
   if (new RegExp('^invitations/' + uuid + '/(accept|reject)$').test(path) && method === 'POST')

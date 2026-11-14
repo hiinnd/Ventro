@@ -15,7 +15,9 @@ export class OrganizationOriginGuard implements CanActivate {
     const logo =
       request.method === 'POST' &&
       (/^\/api\/v1\/organizations\/[a-f0-9-]{36}\/logo$/.test(request.path) ||
-        /^\/api\/v1\/organizations\/[a-f0-9-]{36}\/events\/[a-f0-9-]{36}\/cover$/.test(request.path));
+        /^\/api\/v1\/organizations\/[a-f0-9-]{36}\/events\/[a-f0-9-]{36}\/cover$/.test(
+          request.path,
+        ));
     if (
       !request.headers.origin ||
       !this.config.get('WEB_ORIGINS', { infer: true }).includes(request.headers.origin) ||

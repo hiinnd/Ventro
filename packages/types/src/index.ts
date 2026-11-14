@@ -47,9 +47,30 @@ export const organizationRoleSchema = z.enum([
 ]);
 export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
 export const organizationPermissions = {
-  OWNER: ['organization:read', 'organization:write', 'team:read', 'team:write', 'dashboard:read', 'events:read', 'events:write', 'events:publish', 'events:state'],
-  EVENT_MANAGER: ['organization:read', 'team:read', 'dashboard:read', 'events:read', 'events:write', 'events:publish'],
-  CHECK_IN_STAFF: ['organization:read'],
+  OWNER: [
+    'organization:read',
+    'organization:write',
+    'team:read',
+    'team:write',
+    'dashboard:read',
+    'events:read',
+    'events:write',
+    'events:publish',
+    'events:state',
+    'checkin:read',
+    'checkin:write',
+  ],
+  EVENT_MANAGER: [
+    'organization:read',
+    'team:read',
+    'dashboard:read',
+    'events:read',
+    'events:write',
+    'events:publish',
+    'checkin:read',
+    'checkin:write',
+  ],
+  CHECK_IN_STAFF: ['organization:read', 'checkin:read', 'checkin:write'],
   PARTICIPANT: ['organization:read'],
 } as const;
 export type OrganizationPermission = (typeof organizationPermissions)[OrganizationRole][number];
@@ -166,21 +187,132 @@ export type DashboardNotices = z.infer<typeof dashboardNoticesSchema>;
 export const eventStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'UNPUBLISHED', 'CANCELLED']);
 export const eventVisibilitySchema = z.enum(['PUBLIC', 'PRIVATE']);
 export const eventLocationTypeSchema = z.enum(['VENUE', 'ONLINE']);
-export const eventSpeakerSchema = z.object({ id: z.uuid(), name: z.string(), title: z.string(), bio: z.string(), position: z.number().int() });
-export const eventSessionSchema = z.object({ id: z.uuid(), speakerId: z.uuid().nullable(), title: z.string(), description: z.string(), startsAt: z.iso.datetime(), endsAt: z.iso.datetime(), position: z.number().int() });
+export const eventSpeakerSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  title: z.string(),
+  bio: z.string(),
+  position: z.number().int(),
+});
+export const eventSessionSchema = z.object({
+  id: z.uuid(),
+  speakerId: z.uuid().nullable(),
+  title: z.string(),
+  description: z.string(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  position: z.number().int(),
+});
 export const eventSchema = z.object({
-  id: z.uuid(), organizationId: z.uuid(), title: z.string(), description: z.string(), slug: z.string(), status: eventStatusSchema,
-  visibility: eventVisibilitySchema, locationType: eventLocationTypeSchema, venue: z.string(), onlineUrl: z.string(), timezone: z.string(),
-  startsAt: z.iso.datetime().nullable(), endsAt: z.iso.datetime().nullable(), capacity: z.number().int().nullable(), registrationDeadline: z.iso.datetime().nullable(),
-  category: z.string().nullable(), coverDigest: z.string().nullable(), publishedAt: z.iso.datetime().nullable(), cancelledAt: z.iso.datetime().nullable(),
-  speakers: z.array(eventSpeakerSchema), sessions: z.array(eventSessionSchema), updatedAt: z.iso.datetime(),
+  id: z.uuid(),
+  organizationId: z.uuid(),
+  title: z.string(),
+  description: z.string(),
+  slug: z.string(),
+  status: eventStatusSchema,
+  visibility: eventVisibilitySchema,
+  locationType: eventLocationTypeSchema,
+  venue: z.string(),
+  onlineUrl: z.string(),
+  timezone: z.string(),
+  startsAt: z.iso.datetime().nullable(),
+  endsAt: z.iso.datetime().nullable(),
+  capacity: z.number().int().nullable(),
+  registrationDeadline: z.iso.datetime().nullable(),
+  category: z.string().nullable(),
+  coverDigest: z.string().nullable(),
+  publishedAt: z.iso.datetime().nullable(),
+  cancelledAt: z.iso.datetime().nullable(),
+  speakers: z.array(eventSpeakerSchema),
+  sessions: z.array(eventSessionSchema),
+  updatedAt: z.iso.datetime(),
 });
 export type Event = z.infer<typeof eventSchema>;
 export const eventListSchema = paginatedSchema(eventSchema);
 
-export const formFieldTypeSchema = z.enum(['TEXT','TEXTAREA','EMAIL','PHONE','NUMBER','SELECT','RADIO','CHECKBOX','DATE','CONSENT']);
-export const registrationFieldSchema = z.object({ id:z.uuid(),key:z.string(),type:formFieldTypeSchema,label:z.string(),helpText:z.string(),required:z.boolean(),options:z.unknown().nullable(),visibilityRule:z.unknown().nullable(),position:z.number().int() });
-export const registrationFormSchema = z.object({ id:z.uuid().nullable(),eventId:z.uuid(),status:z.enum(['DRAFT','PUBLISHED']),fields:z.array(registrationFieldSchema) });
-export const registrationReceiptSchema = z.object({ id:z.uuid(),eventSlug:z.string(),status:z.enum(['CONFIRMED','CANCELLED']),createdAt:z.iso.datetime() });
-export const registrationListSchema = paginatedSchema(z.object({id:z.uuid(),status:z.enum(['CONFIRMED','CANCELLED']),createdAt:z.iso.datetime(),name:z.string(),email:z.email(),answers:z.array(z.object({key:z.string(),label:z.string(),value:z.unknown()}))}));
-export const myRegistrationListSchema = paginatedSchema(z.object({id:z.uuid(),status:z.enum(['CONFIRMED','CANCELLED']),createdAt:z.iso.datetime(),event:z.object({title:z.string(),slug:z.string(),startsAt:z.iso.datetime().nullable(),timezone:z.string()})}));
+export const formFieldTypeSchema = z.enum([
+  'TEXT',
+  'TEXTAREA',
+  'EMAIL',
+  'PHONE',
+  'NUMBER',
+  'SELECT',
+  'RADIO',
+  'CHECKBOX',
+  'DATE',
+  'CONSENT',
+]);
+export const registrationFieldSchema = z.object({
+  id: z.uuid(),
+  key: z.string(),
+  type: formFieldTypeSchema,
+  label: z.string(),
+  helpText: z.string(),
+  required: z.boolean(),
+  options: z.unknown().nullable(),
+  visibilityRule: z.unknown().nullable(),
+  position: z.number().int(),
+});
+export const registrationFormSchema = z.object({
+  id: z.uuid().nullable(),
+  eventId: z.uuid(),
+  status: z.enum(['DRAFT', 'PUBLISHED']),
+  fields: z.array(registrationFieldSchema),
+});
+export const registrationReceiptSchema = z.object({
+  id: z.uuid(),
+  eventSlug: z.string(),
+  status: z.enum(['CONFIRMED', 'CANCELLED']),
+  createdAt: z.iso.datetime(),
+});
+export const registrationListSchema = paginatedSchema(
+  z.object({
+    id: z.uuid(),
+    status: z.enum(['CONFIRMED', 'CANCELLED']),
+    createdAt: z.iso.datetime(),
+    name: z.string(),
+    email: z.email(),
+    answers: z.array(z.object({ key: z.string(), label: z.string(), value: z.unknown() })),
+  }),
+);
+export const myRegistrationListSchema = paginatedSchema(
+  z.object({
+    id: z.uuid(),
+    status: z.enum(['CONFIRMED', 'CANCELLED']),
+    createdAt: z.iso.datetime(),
+    event: z.object({
+      title: z.string(),
+      slug: z.string(),
+      startsAt: z.iso.datetime().nullable(),
+      timezone: z.string(),
+    }),
+  }),
+);
+export const ticketListSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.uuid(),
+      credential: z.uuid(),
+      revokedAt: z.iso.datetime().nullable(),
+      event: z.object({
+        title: z.string(),
+        slug: z.string(),
+        startsAt: z.iso.datetime().nullable(),
+        timezone: z.string(),
+      }),
+    }),
+  ),
+});
+export const checkInDashboardSchema = z.object({
+  registered: z.number().int().nonnegative(),
+  checkedIn: z.number().int().nonnegative(),
+  attendancePercent: z.number().nonnegative(),
+  recent: z.array(z.object({ id: z.uuid(), attendee: z.string(), createdAt: z.iso.datetime() })),
+});
+export const checkInReceiptSchema = z.object({
+  status: z.literal('CONFIRMED'),
+  scope: z.enum(['EVENT', 'SESSION']),
+  attendee: z.uuid(),
+  checkedInAt: z.iso.datetime(),
+  session: z.string().optional(),
+});

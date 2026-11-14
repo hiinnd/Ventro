@@ -8,6 +8,11 @@ export class DashboardOverviewQuery {
   @IsIn(['7', '30'])
   range: '7' | '30' = '7';
 }
+export class AnalyticsQuery {
+  @ApiPropertyOptional({ enum: ['7', '30', '90'], default: '30' })
+  @IsIn(['7', '30', '90'])
+  range: '7' | '30' | '90' = '30';
+}
 export class DashboardActivityQuery extends PageDto {
   @ApiPropertyOptional({ enum: dashboardActivityGroupSchema.options, default: 'ALL' })
   @IsIn(dashboardActivityGroupSchema.options)

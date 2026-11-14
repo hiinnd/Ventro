@@ -43,6 +43,7 @@ import {
   DashboardActivityQuery,
   DashboardOverviewQuery,
   DashboardSearchDto,
+  AnalyticsQuery,
 } from './dashboard.dto';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
@@ -110,6 +111,14 @@ export class OrganizationController {
   @Get(':organizationId/dashboard/notices')
   notices(@Req() req: AuthRequest, @Param('organizationId', uuid) id: string) {
     return this.dashboard.notices(authenticated(req), id);
+  }
+  @Get(':organizationId/dashboard/analytics')
+  analytics(
+    @Req() req: AuthRequest,
+    @Param('organizationId', uuid) id: string,
+    @Query() query: AnalyticsQuery,
+  ) {
+    return this.dashboard.analytics(authenticated(req), id, query);
   }
   @Post(':organizationId/dashboard/search')
   @HttpCode(200)

@@ -34,6 +34,10 @@ import { DashboardIcon } from './icons';
 import { DashboardOverviewPanel, PlannedDashboardSection } from './overview';
 import { EventsPanel } from '../events/events-panel';
 import { OrganizerRegistrations } from '../registrations/organizer-registrations';
+import { CheckInPanel } from '../ticketing/check-in-panel';
+import { OrganizerEngagement } from '../engagement/organizer-engagement';
+import { PassportPanel } from '../certificates/passport';
+import { EventAssistant } from '../ai/assistant';
 
 function OrganizerNavigation({
   locale,
@@ -210,9 +214,22 @@ export function OrganizerDashboard({
           {section === 'overview' ? (
             <DashboardOverviewPanel locale={locale} organization={organization} />
           ) : section === 'events' ? (
-            <EventsPanel locale={locale} organization={organization} />
+            <>
+              <EventsPanel locale={locale} organization={organization} />
+              <EventAssistant
+                key={organization.id}
+                locale={locale}
+                organizationId={organization.id}
+              />
+            </>
           ) : section === 'registrations' ? (
             <OrganizerRegistrations locale={locale} organization={organization} />
+          ) : section === 'attendees' ? (
+            <CheckInPanel locale={locale} organization={organization} />
+          ) : section === 'polls' ? (
+            <OrganizerEngagement locale={locale} organization={organization} />
+          ) : section === 'certificates' ? (
+            <PassportPanel />
           ) : section === 'team' ? (
             <Team locale={locale} organization={organization} currentUserId={session.user.id} />
           ) : section === 'settings' ? (

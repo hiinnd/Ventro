@@ -26,6 +26,12 @@ describe('organization proxy and redirect security boundaries', () => {
       '/en/organizations/' + id + '/team',
     );
     expect(safeLoginDestination('/ar/invitations', 'ar')).toBe('/ar/invitations');
+    expect(safeLoginDestination('/en/events/future-of-events/live', 'en')).toBe(
+      '/en/events/future-of-events/live',
+    );
+    expect(safeLoginDestination('/en/events/future-of-events/presenter', 'en')).toBe(
+      '/en/events/future-of-events/presenter',
+    );
     for (const path of [
       '//evil.test',
       'https://evil.test',
