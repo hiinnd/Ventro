@@ -226,11 +226,36 @@ export class AuthService {
       });
       if (consumed.count !== 1) throw invalidLink();
       await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
+      const guestRegistrations = await tx.registration.findMany({
+        where: { userId: null, attendeeEmail: user.email },
+        select: { id: true, eventId: true, ticket: { select: { id: true } } },
+      });
+      let claimed = 0;
+      for (const registration of guestRegistrations) {
+        const existing = await tx.registration.findUnique({
+          where: { eventId_userId: { eventId: registration.eventId, userId: user.id } },
+          select: { id: true },
+        });
+        if (existing) continue;
+        await tx.registration.update({ where: { id: registration.id }, data: { userId: user.id } });
+        if (registration.ticket)
+          await tx.ticket.update({
+            where: { id: registration.ticket.id },
+            data: { guestAccessHash: null, guestAccessExpiresAt: null },
+          });
+        claimed++;
+      }
       await tx.emailVerificationToken.updateMany({
         where: { userId: user.id, usedAt: null },
         data: { usedAt: new Date() },
       });
-      await this.audit.write('AUTH_EMAIL_VERIFIED', user.id, context, undefined, tx);
+      await this.audit.write(
+        'AUTH_EMAIL_VERIFIED',
+        user.id,
+        context,
+        { claimedRegistrations: claimed },
+        tx,
+      );
     });
     return { message: 'Email verified. You can sign in to your account.' };
   }

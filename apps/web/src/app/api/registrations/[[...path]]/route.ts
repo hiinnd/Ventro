@@ -14,7 +14,7 @@ async function relay(request: Request, context: { params: Promise<{ path?: strin
     return NextResponse.json({ message: 'Resource unavailable' }, { status: 404 });
   const url = new URL('/api/v1/' + path.join('/'), authApiUrl('session'));
   for (const [key, value] of new URL(request.url).searchParams) {
-    if (['page', 'q', 'status'].includes(key) && value.length <= 120)
+    if (['page', 'q', 'status', 'token'].includes(key) && value.length <= 120)
       url.searchParams.set(key, value);
   }
   const headers = new Headers({ Cookie: authCookieHeader(request.headers.get('cookie')) });
@@ -34,6 +34,15 @@ async function relay(request: Request, context: { params: Promise<{ path?: strin
   }
   try {
     const r = await fetch(url, { method: request.method, headers, body, cache: 'no-store' });
+    if (r.headers.get('content-type')?.includes('application/pdf'))
+      return new NextResponse(await r.arrayBuffer(), {
+        status: r.status,
+        headers: {
+          'Cache-Control': 'no-store',
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': r.headers.get('content-disposition') ?? 'attachment',
+        },
+      });
     const data = await r.json().catch(() => ({}));
     return NextResponse.json(data, { status: r.status, headers: { 'Cache-Control': 'no-store' } });
   } catch {

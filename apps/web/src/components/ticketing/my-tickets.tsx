@@ -55,9 +55,17 @@ function TicketCard({ ticket, locale }: { ticket: Ticket; locale: Locale }) {
           </p>
         </>
       )}
-      <Button variant="outline" onClick={() => window.print()}>
-        {t('Download / print ticket', 'تنزيل / طباعة التذكرة')}
-      </Button>
+      <div className="flex flex-wrap gap-3">
+        <a
+          className="ui-button ui-button-secondary"
+          href={'/api/registrations/tickets/' + ticket.id + '/download'}
+        >
+          {t('Download ticket PDF', 'تنزيل التذكرة PDF')}
+        </a>
+        <Button variant="outline" onClick={() => window.print()}>
+          {t('Print ticket', 'طباعة التذكرة')}
+        </Button>
+      </div>
     </article>
   );
 }

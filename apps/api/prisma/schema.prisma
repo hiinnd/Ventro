@@ -378,6 +378,8 @@ model Ticket {
   registrationId    String            @unique @db.Uuid
   tokenHash         String            @unique @db.Char(64)
   credential        String            @unique @db.VarChar(64)
+  guestAccessHash   String?           @unique @db.Char(64)
+  guestAccessExpiresAt DateTime?      @db.Timestamptz(3)
   revokedAt         DateTime?         @db.Timestamptz(3)
   createdAt         DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime          @updatedAt @db.Timestamptz(3)
@@ -386,6 +388,7 @@ model Ticket {
   sessionAttendance SessionAttendance[]
 
   @@index([tokenHash])
+  @@index([guestAccessExpiresAt])
 }
 
 model CheckIn {

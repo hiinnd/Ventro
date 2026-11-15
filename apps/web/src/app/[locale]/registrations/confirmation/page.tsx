@@ -22,11 +22,11 @@ export default async function Page({
         {email === '1'
           ? guest
             ? ar
-              ? 'أرسلنا تذكرتك ورمز QR إلى بريدك الإلكتروني. احتفظ بالرسالة لإبراز الرمز عند الدخول.'
-              : 'We sent your ticket and QR code to your email. Keep the message to present the code at check-in.'
+              ? 'تمت جدولة رسالة التذكرة ورمز QR لبريدك الإلكتروني. احتفظ بالرسالة عند وصولها لإبراز الرمز عند الدخول.'
+              : 'Your ticket email and QR code are queued for delivery. Keep the message when it arrives to present the code at check-in.'
             : ar
-              ? 'أرسلنا رسالة تأكيد وتذكرتك إلى بريد حسابك. يمكنك أيضًا عرضها من تذاكري.'
-              : 'We sent a confirmation and your ticket to your account email. You can also view it in My tickets.'
+              ? 'تمت جدولة رسالة التأكيد لبريد حسابك. يمكنك أيضًا عرض تذكرتك من تذاكري.'
+              : 'Your confirmation email is queued for delivery. You can also view your ticket in My tickets.'
           : ar
             ? 'تذكرتك جاهزة الآن في حسابك ضمن تذاكري.'
             : 'Your ticket is now ready in your account under My tickets.'}

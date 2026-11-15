@@ -2,11 +2,13 @@ import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/com
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import { createTransport, type Transporter } from 'nodemailer';
+import { Queue, Worker } from 'bullmq';
 import { toDataURL } from 'qrcode';
 import { z } from 'zod';
 import { PrismaService } from '../database/prisma.service';
 import type { EmailKind, Prisma } from '../generated/prisma/client';
 import type { Environment } from '../config/environment';
+import { RedisService } from '../redis/redis.service';
 import { decryptPayload, encryptPayload } from './crypto';
 
 const payloadSchema = z.object({
@@ -139,12 +141,15 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   private readonly transport: Transporter;
   private timer?: ReturnType<typeof setInterval>;
   private pending?: Promise<void>;
+  private queue?: Queue<{ deliveryId: string }>;
+  private worker?: Worker<{ deliveryId: string }>;
   private ticks = 0;
   private stopping = false;
   constructor(
     private readonly db: PrismaService,
     private readonly config: ConfigService<Environment, true>,
     private readonly logger: PinoLogger,
+    private readonly redis: RedisService,
   ) {
     this.transport = createTransport({
       host: config.get('SMTP_HOST', { infer: true }),
@@ -185,9 +190,15 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     });
   }
   onModuleInit() {
+    const connection = this.redis.bullConnection();
+    this.queue = new Queue('transactional-email', { connection });
+    this.worker = new Worker('transactional-email', (job) => this.work(job.data.deliveryId), {
+      connection: this.redis.bullConnection(),
+      concurrency: 4,
+    });
     this.timer = setInterval(() => {
       if (!this.pending && !this.stopping) {
-        this.pending = this.work()
+        this.pending = this.dispatch()
           .catch(() => this.logger.warn('Email outbox temporarily unavailable'))
           .finally(() => {
             this.pending = undefined;
@@ -229,6 +240,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       onlineUrl: string;
     },
     credential: string,
+    guestTicketUrl?: string,
   ) {
     const accountRecipient = 'id' in recipient;
     if (accountRecipient) {
@@ -243,7 +255,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     const locale = recipient.locale === 'ar' ? 'ar' : 'en';
     const ticketUrl = accountRecipient
       ? this.config.get('AUTH_APP_URL', { infer: true }) + '/' + locale + '/tickets'
-      : undefined;
+      : guestTicketUrl;
     return tx.emailOutbox.create({
       data: {
         ...(accountRecipient ? { userId: recipient.id } : {}),
@@ -272,15 +284,45 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
     this.stopping = true;
     clearInterval(this.timer);
     await this.pending;
+    await Promise.all([this.worker?.close(), this.queue?.close()]);
     this.transport.close();
   }
-  private async work() {
+  private async dispatch() {
     if (this.ticks++ % 1800 === 0) await this.cleanup();
+    const due = await this.db.emailOutbox.findMany({
+      where: {
+        expiresAt: { gt: new Date() },
+        OR: [
+          { status: 'PENDING', nextAttemptAt: { lte: new Date() } },
+          { status: 'PROCESSING', leaseUntil: { lt: new Date() } },
+        ],
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    });
+    await Promise.all(
+      due.map((delivery) =>
+        this.queue!.add(
+          'deliver',
+          { deliveryId: delivery.id },
+          {
+            jobId: 'email-' + delivery.id,
+            attempts: 8,
+            backoff: { type: 'exponential', delay: 2000 },
+            removeOnComplete: true,
+            removeOnFail: false,
+          },
+        ),
+      ),
+    );
+  }
+  private async work(deliveryId: string) {
     // Lease outside the network operation. SKIP LOCKED supports multiple API processes.
     const claimed = await this.db.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<
         Array<{ id: string }>
-      >`SELECT "id" FROM "EmailOutbox" WHERE "expiresAt" > NOW() AND (("status" = 'PENDING' AND "nextAttemptAt" <= NOW()) OR ("status" = 'PROCESSING' AND "leaseUntil" < NOW())) ORDER BY "createdAt" LIMIT 1 FOR UPDATE SKIP LOCKED`;
+      >`SELECT "id" FROM "EmailOutbox" WHERE "id" = ${deliveryId}::uuid AND "expiresAt" > NOW() AND ("status" = 'PENDING' OR ("status" = 'PROCESSING' AND "leaseUntil" < NOW())) FOR UPDATE SKIP LOCKED`;
       if (!rows[0]) return null;
       return tx.emailOutbox.update({
         where: { id: rows[0].id },
@@ -424,6 +466,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
           nextAttemptAt: new Date(Date.now() + Math.min(300000, 2000 * 2 ** claimed.attempts)),
         },
       });
+      if (claimed.attempts < 8) throw new Error('Email delivery failed');
     }
   }
   private async cleanup() {

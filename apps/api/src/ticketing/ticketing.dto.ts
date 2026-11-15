@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsUUID, Matches } from 'class-validator';
 
 export class ScanTicketDto {
   @IsUUID()
@@ -7,4 +7,8 @@ export class ScanTicketDto {
   @IsOptional()
   @IsUUID()
   sessionId?: string;
+}
+export class GuestTicketQuery {
+  @Matches(/^[a-f0-9]{64}$/)
+  token!: string;
 }

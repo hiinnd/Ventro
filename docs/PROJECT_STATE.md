@@ -467,3 +467,41 @@ No new correctness, import, route, API-contract, migration, authorization, or RT
 
 - Guest tickets are intentionally email-only; converting a historical guest registration into a newly created VENTRO account is a separate, identity-verification-sensitive feature and is not implied by matching an email address.
 - Production delivery still requires verified SMTP/domain configuration; local Mailpit confirms development handoff only.
+
+## Registration, email confirmation, and guest-ticket hardening — 2026-11-15
+
+### Completed features
+
+- Guest registrations now receive a 30-day, cryptographically random, limited-scope ticket URL. Only its SHA-256 representation is persisted; the opaque QR credential remains separate and contains no personal data.
+- Added a no-cookie guest-ticket route and PDF download. The route requires both a UUID ticket selector and 256-bit access token, rejects invalid/expired links, and is disabled after a guest registration is claimed by a verified VENTRO account.
+- A newly verified VENTRO account securely claims accountless registrations with the same verified email. The operation runs in the verification transaction, avoids event duplicates, revokes the old guest link, and audits the claimed count.
+- Account and guest ticket PDF downloads use the same ticket model and server-side access checks.
+- Transactional outbox delivery now uses a BullMQ `transactional-email` queue backed by Redis. PostgreSQL remains the durable source of delivery intent; jobs use a stable delivery ID, exponential retry, bounded attempts, and fail without rolling back registrations/tickets. SMTP acceptance marks the outbox `SENT`; this is explicitly not inbox-delivery confirmation.
+- Confirmation UI now says email is queued rather than falsely claiming it has been delivered.
+
+### Modified files
+
+- `apps/api/prisma/schema.prisma` and `apps/api/prisma/migrations/20261115010000_guest_ticket_access/migration.sql`
+- `apps/api/src/auth/auth.service.ts` and `apps/api/src/auth/email.service.ts`
+- `apps/api/src/registrations/registrations.service.ts`
+- `apps/api/src/ticketing/ticketing.controller.ts`, `ticketing.dto.ts`, `ticketing.module.ts`, and `ticketing.service.ts`
+- `apps/web/src/app/api/registrations/[[...path]]/route.ts`
+- `apps/web/src/app/[locale]/guest-tickets/[ticketId]/page.tsx`
+- `apps/web/src/components/ticketing/guest-ticket.tsx`, `my-tickets.tsx`, and registration confirmation page.
+
+### Database changes
+
+- Locally applied `20261115010000_guest_ticket_access` after the existing guest-registration migration. It adds nullable hashed guest-access credentials and expiration/index fields to `Ticket`; raw access tokens are never stored.
+
+### Commands executed and results
+
+| Command / check                                   | Observed result                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pnpm db:deploy`                                  | PostgreSQL/Redis local services restored; applied and directly verified `20261115010000_guest_ticket_access`. |
+| `pnpm db:validate`, `pnpm typecheck`, `pnpm lint` | Completed successfully after Prisma generation.                                                               |
+| Focused registration integration                  | Executed against the isolated database and local Mailpit after the BullMQ transition.                         |
+
+### Known issues and next dependencies
+
+- The repository now provides registration confirmation/ticket delivery. Dedicated event reminder/update/cancellation and certificate-issued message producers/templates still need their respective event/certificate lifecycle hooks; they are not represented as completed delivery categories.
+- Inbox placement and rendering in external Gmail/Outlook clients cannot be verified from a local Mailpit run. Production requires a configured provider, verified sending domain, SPF/DKIM/DMARC, bounce handling, and provider webhooks before any inbox-delivery claim.

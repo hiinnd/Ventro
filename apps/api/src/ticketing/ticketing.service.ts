@@ -1,6 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import PDFDocument from 'pdfkit';
+import { toBuffer } from 'qrcode';
 import type { AuthContext } from '../auth/auth.service';
 import { AuditService, type AuditContext } from '../auth/audit.service';
+import { tokenHash } from '../auth/crypto';
 import { PrismaService } from '../database/prisma.service';
 import { OrganizationService } from '../organizations/organization.service';
 import type { ScanTicketDto } from './ticketing.dto';
@@ -12,6 +15,107 @@ export class TicketingService {
     private readonly organizations: OrganizationService,
     private readonly audit: AuditService,
   ) {}
+
+  private ticketView(ticket: {
+    id: string;
+    credential: string;
+    revokedAt: Date | null;
+    registration: {
+      attendeeName: string;
+      event: {
+        title: string;
+        slug: string;
+        startsAt: Date | null;
+        timezone: string;
+        venue: string;
+        onlineUrl: string;
+        locationType: 'VENUE' | 'ONLINE';
+      };
+    };
+  }) {
+    return {
+      id: ticket.id,
+      credential: ticket.credential,
+      revokedAt: ticket.revokedAt?.toISOString() ?? null,
+      attendeeName: ticket.registration.attendeeName,
+      event: {
+        ...ticket.registration.event,
+        startsAt: ticket.registration.event.startsAt?.toISOString() ?? null,
+      },
+    };
+  }
+  private async findGuestTicket(ticketId: string, token: string) {
+    const ticket = await this.db.ticket.findFirst({
+      where: {
+        id: ticketId,
+        guestAccessHash: tokenHash(token),
+        guestAccessExpiresAt: { gt: new Date() },
+        registration: { userId: null },
+      },
+      include: { registration: { include: { event: true } } },
+    });
+    if (!ticket) throw new NotFoundException('Ticket link is invalid or expired');
+    return ticket;
+  }
+  async guest(ticketId: string, token: string) {
+    return this.ticketView(await this.findGuestTicket(ticketId, token));
+  }
+  async guestPdf(ticketId: string, token: string) {
+    return this.pdf(await this.findGuestTicket(ticketId, token));
+  }
+  async download(auth: AuthContext, ticketId: string) {
+    const ticket = await this.db.ticket.findFirst({
+      where: { id: ticketId, registration: { userId: auth.user.id } },
+      include: { registration: { include: { event: true } } },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    return this.pdf(ticket);
+  }
+  private async pdf(ticket: {
+    id: string;
+    credential: string;
+    revokedAt: Date | null;
+    registration: {
+      attendeeName: string;
+      event: {
+        title: string;
+        startsAt: Date | null;
+        timezone: string;
+        venue: string;
+        onlineUrl: string;
+        locationType: 'VENUE' | 'ONLINE';
+      };
+    };
+  }) {
+    const qr = await toBuffer('ventro:ticket:' + ticket.credential, {
+      width: 320,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+    });
+    return new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 54 });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      doc.fillColor('#101B35').fontSize(28).text('VENTRO');
+      doc.fillColor('#252B42').fontSize(12).text('Every Event. Beyond the Moment.');
+      doc.moveDown(3).fillColor('#101B35').fontSize(24).text(ticket.registration.event.title);
+      doc
+        .moveDown()
+        .fontSize(14)
+        .fillColor('#252B42')
+        .text('Attendee: ' + ticket.registration.attendeeName);
+      doc.text('Ticket ID: ' + ticket.id);
+      doc.text('Status: ' + (ticket.revokedAt ? 'REVOKED' : 'CONFIRMED'));
+      if (!ticket.revokedAt) doc.moveDown().image(qr, { fit: [180, 180], align: 'center' });
+      doc
+        .moveDown()
+        .fontSize(11)
+        .text('Present the QR code from your ticket page or confirmation email at check-in.');
+      doc.end();
+    });
+  }
 
   async mine(auth: AuthContext) {
     const tickets = await this.db.ticket.findMany({

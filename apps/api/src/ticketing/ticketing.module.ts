@@ -3,11 +3,11 @@ import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
 import { OrganizationModule } from '../organizations/organization.module';
 import { RedisModule } from '../redis/redis.module';
-import { TicketingController } from './ticketing.controller';
+import { GuestTicketController, TicketingController } from './ticketing.controller';
 import { TicketingService } from './ticketing.service';
 @Module({
   imports: [AuthModule, DatabaseModule, RedisModule, OrganizationModule],
-  controllers: [TicketingController],
+  controllers: [TicketingController, GuestTicketController],
   providers: [TicketingService],
 })
 export class TicketingModule {}

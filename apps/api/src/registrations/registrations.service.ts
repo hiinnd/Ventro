@@ -4,13 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { AuthContext } from '../auth/auth.service';
 import { AuditService, type AuditContext } from '../auth/audit.service';
-import { normalizeEmail } from '../auth/crypto';
+import { normalizeEmail, randomToken, tokenHash } from '../auth/crypto';
 import { EmailService } from '../auth/email.service';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
+import type { Environment } from '../config/environment';
 import { OrganizationService } from '../organizations/organization.service';
 import type { RegistrationListQuery, SaveFormDto, SubmitRegistrationDto } from './registration.dto';
 
@@ -41,6 +43,7 @@ export class RegistrationsService {
     private readonly orgs: OrganizationService,
     private readonly audit: AuditService,
     private readonly emails: EmailService,
+    private readonly config: ConfigService<Environment, true>,
   ) {}
   private checkSchema(input: SaveFormDto) {
     const keys = new Set<string>();
@@ -206,6 +209,7 @@ export class RegistrationsService {
         ? 'ar'
         : 'en'
       : (input.locale ?? 'en');
+    const guestAccessToken = accountRegistration ? undefined : randomToken();
     return this.db.$transaction(async (tx) => {
       const event = await tx.event.findFirst({
         where: { slug, status: 'PUBLISHED', visibility: 'PUBLIC' },
@@ -239,13 +243,28 @@ export class RegistrationsService {
       });
       const ticketSecret = randomBytes(32).toString('base64url');
       const ticketCredential = randomUUID();
-      await tx.ticket.create({
+      const ticket = await tx.ticket.create({
         data: {
           registrationId: registration.id,
           credential: ticketCredential,
           tokenHash: createHash('sha256').update(ticketSecret).digest('hex'),
+          ...(guestAccessToken
+            ? {
+                guestAccessHash: tokenHash(guestAccessToken),
+                guestAccessExpiresAt: new Date(Date.now() + 30 * 86400000),
+              }
+            : {}),
         },
       });
+      const guestTicketUrl = guestAccessToken
+        ? this.config.get('AUTH_APP_URL', { infer: true }) +
+          '/' +
+          locale +
+          '/guest-tickets/' +
+          ticket.id +
+          '?token=' +
+          guestAccessToken
+        : undefined;
       const emailDelivery = await this.emails.enqueueRegistrationConfirmation(
         tx,
         accountRegistration ? auth!.user : { email: attendeeEmail, locale },
@@ -258,6 +277,7 @@ export class RegistrationsService {
           onlineUrl: event.onlineUrl,
         },
         ticketCredential,
+        guestTicketUrl,
       );
       if (accountRegistration) {
         const arabic = locale === 'ar';
